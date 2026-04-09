@@ -155,6 +155,80 @@ class TestWriteFile:
         assert out.num_rows == 2
         assert out.columns == ["a", "b"]
 
+    def test_write_file_orc_roundtrip(self, tmp_path):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        path = tmp_path / "out.orc"
+        fx.write_file(df, path)
+        out = fx.read_file(path)
+        assert out.num_rows == 2
+        assert out.columns == ["a", "b"]
+
+    def test_write_file_html(self, tmp_path):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        path = tmp_path / "out.html"
+        fx.write_file(df, path)
+        html = path.read_text(encoding="utf-8")
+        assert "<table" in html
+        assert "a" in html
+        assert "b" in html
+
+    def test_write_file_xml(self, tmp_path):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        path = tmp_path / "out.xml"
+        fx.write_file(df, path)
+        xml = path.read_text(encoding="utf-8")
+        assert "<data>" in xml
+        assert "<a>" in xml
+        assert "<b>" in xml
+
+    def test_write_file_txt_roundtrip(self, tmp_path):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        path = tmp_path / "out.txt"
+        fx.write_file(df, path)
+        out = fx.read_file(path)
+        assert out.num_rows == 2
+        assert out.columns == ["a", "b"]
+
+    def test_write_file_fixed_roundtrip(self, tmp_path):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        path = tmp_path / "out.fwf"
+        fx.write_file(df, path)
+        out = fx.read_file(path)
+        assert out.num_rows == 2
+        assert out.columns == ["a", "b"]
+        assert out["a"].to_pylist() == [1, 2]
+
+    def test_write_file_sqlite_roundtrip(self, tmp_path):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        path = tmp_path / "out.sqlite"
+        fx.write_file(df, path, table="scores")
+        out = fx.read_file(path, table="scores")
+        assert out.num_rows == 2
+        assert out.columns == ["a", "b"]
+        assert out["b"].to_pylist() == ["x", "y"]
+
+    def test_write_file_accepts_dict_input(self, tmp_path):
+        path = tmp_path / "dict.csv"
+        fx.write_file({"a": [1, 2], "b": ["x", "y"]}, path)
+        out = fx.read_file(path)
+        assert out.num_rows == 2
+        assert out.columns == ["a", "b"]
+
+    def test_write_file_accepts_list_of_records(self, tmp_path):
+        path = tmp_path / "records.json"
+        fx.write_file([{"a": 1, "b": "x"}, {"a": 2, "b": "y"}], path)
+        out = fx.read_file(path)
+        assert out.num_rows == 2
+        assert out.columns == ["a", "b"]
+
+    def test_read_file_sqlite_query(self, tmp_path):
+        df = DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+        path = tmp_path / "query.sqlite"
+        fx.write_file(df, path, table="scores")
+        out = fx.read_file(path, query="SELECT a, b FROM scores WHERE a >= 2 ORDER BY a")
+        assert out.num_rows == 2
+        assert out["a"].to_pylist() == [2, 3]
+
 
 class TestCompressedIO:
     def test_csv_gzip_roundtrip(self, tmp_path):

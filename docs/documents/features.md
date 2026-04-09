@@ -44,8 +44,10 @@ FrameX focuses on high-throughput local analytics with predictable behavior and 
 
 - Unified `read_file(...)` / `write_file(...)`
 - Formats:
-  - Parquet, Arrow IPC, CSV/TSV, JSON/NDJSON
-  - Feather, Pickle, Excel
+  - Parquet, ORC, Arrow IPC
+  - CSV/TSV/Text + fixed-width text
+  - JSON/NDJSON, Feather, Pickle, Excel, SQLite
+  - Export-only: HTML and XML
 - Compression wrappers:
   - `.gz`, `.bz2`, `.xz`, `.zip`
   - `.zst`/`.zstd` (with `zstandard`)
