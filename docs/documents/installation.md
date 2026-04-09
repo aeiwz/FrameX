@@ -43,7 +43,25 @@ Install extras based on your workload:
 pip install framex[bench]      # benchmark suite deps
 pip install framex[accel]      # numexpr + numba
 pip install framex[gpu]        # cupy (CUDA)
+pip install framex[ml_accel]   # jax + pytorch
 pip install framex[pandas_fast]  # modin backend
+pip install "dask[distributed]" "ray[data]"  # cluster/HPC backends
+pip install zstandard  # .zst/.zstd compression
+```
+
+## Optional Backend Test Coverage
+
+If `pytest` shows skipped tests, this usually means optional runtimes are not installed.
+Common optional dependencies:
+
+- `dask.distributed` / `dask.dataframe`
+- `ray` / `ray.data`
+
+Install them to reduce skips:
+
+```bash
+pip install "dask[distributed]" "ray[data]"
+pytest -q
 ```
 
 ## Build and Test Locally

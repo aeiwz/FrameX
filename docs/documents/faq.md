@@ -40,7 +40,18 @@ Migrate incrementally:
 
 ## Which file formats are supported today?
 
-Current IO helpers cover Parquet, Arrow IPC stream format, and CSV.
+FrameX supports read/write for:
+
+- Parquet (`.parquet`)
+- Arrow IPC (`.arrow`, `.ipc`)
+- CSV/TSV (`.csv`, `.tsv`)
+- JSON / NDJSON (`.json`, `.jsonl`, `.ndjson`)
+- Feather (`.feather`)
+- Pickle (`.pkl`, `.pickle`)
+- Excel (`.xlsx`, `.xls`) via pandas-compatible backend
+
+`read_file(...)` and `write_file(...)` auto-detect by extension and support compressed wrappers:
+`.gz`, `.bz2`, `.xz`, `.zip`, plus `.zst`/`.zstd` when `zstandard` is installed.
 
 ## How do I tune execution?
 
@@ -51,3 +62,18 @@ Use runtime config APIs:
 - `set_serializer(...)`
 - `set_kernel_backend(...)`
 - `set_array_backend(...)`
+
+## Why do some tests show as skipped?
+
+Several tests are optional-backend tests and use `pytest.importorskip(...)`.
+They are skipped (not failed) when optional runtimes are missing, especially:
+
+- `dask.distributed` / `dask.dataframe`
+- `ray` / `ray.data`
+
+Install optional deps to run those suites:
+
+```bash
+pip install "dask[distributed]" "ray[data]"
+pytest -q
+```

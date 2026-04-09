@@ -4,8 +4,10 @@ from framex._version import __version__
 from framex.config import (
     ArrayBackendType,
     Config,
+    auto_configure_hardware,
     config,
     get_config,
+    recommend_best_performance_config,
     set_array_backend,
     set_backend,
     set_kernel_backend,
@@ -53,6 +55,8 @@ __all__ = [
     # Config
     "Config",
     "ArrayBackendType",
+    "recommend_best_performance_config",
+    "auto_configure_hardware",
     "config",
     "get_config",
     "set_array_backend",

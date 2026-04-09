@@ -39,7 +39,7 @@ pip install -e .
 Requirements:
 
 - Python `>=3.10`
-- Core dependencies: `pyarrow`, `numpy`, `dask`, `ray`
+- Core dependencies: `pyarrow`, `numpy`
 - Optional compatibility: `pandas` (`pip install framex[pandas_compat]`)
 
 ## Quick Start
@@ -87,6 +87,8 @@ Compression:
 - `fx.from_pandas`, `fx.from_dask`, `fx.from_ray`, `fx.from_dataframe`
 - `fx.get_config`, `fx.set_backend`, `fx.set_workers`, `fx.set_serializer`, `fx.set_kernel_backend`
 - `fx.set_array_backend` for auto/NumExpr/Numba/JAX/PyTorch/CuPy acceleration modes
+- `fx.recommend_best_performance_config()` to inspect hardware-tuned settings
+- `fx.auto_configure_hardware()` to apply best-performance config automatically
 - `fx.StreamProcessor` for micro-batch streaming pipelines
 
 Acceleration extras:
@@ -95,6 +97,9 @@ Acceleration extras:
 pip install framex[accel]      # numexpr + numba
 pip install framex[gpu]        # cupy (CUDA)
 pip install framex[ml_accel]   # jax + pytorch
+pip install framex[pandas_fast]  # modin backend
+pip install dask[distributed] ray[data]  # distributed/HPC backends
+pip install zstandard  # .zst/.zstd file compression
 ```
 
 Backend notes:
@@ -106,6 +111,17 @@ Backend notes:
   - `FRAMEX_DASK_SCHEDULER_ADDRESS=<tcp://...>` to connect existing Dask clusters
   - `FRAMEX_RAY_ADDRESS=<ray://...>` to connect existing Ray clusters
   - optional SLURM bootstrap: `FRAMEX_DASK_SLURM=1` (requires `dask-jobqueue`)
+
+Test support notes:
+
+- Some tests are optional-backend gated and intentionally `skipped` when deps are not installed.
+- Typical skip reasons: missing `dask.distributed`, `dask.dataframe`, `ray`, or `ray.data`.
+- Run full optional matrix locally:
+
+```bash
+pip install "dask[distributed]" "ray[data]"
+pytest -q
+```
 
 ## Documentation
 

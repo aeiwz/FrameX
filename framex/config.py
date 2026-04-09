@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
@@ -28,6 +29,128 @@ class Config:
 
 # Module-level mutable state — guarded by accessor functions.
 _current: Config = Config()
+
+
+def _module_available(module_name: str) -> bool:
+    return importlib.util.find_spec(module_name) is not None
+
+
+def _detect_total_memory_gb() -> float | None:
+    try:
+        import psutil
+    except Exception:
+        return None
+    try:
+        return psutil.virtual_memory().total / (1024**3)
+    except Exception:
+        return None
+
+
+def _detect_gpu_array_backend() -> ArrayBackendType | None:
+    # Highest-priority path: CuPy with at least one CUDA device.
+    if _module_available("cupy"):
+        try:
+            import cupy as cp
+
+            if cp.cuda.runtime.getDeviceCount() > 0:
+                return "cupy"
+        except Exception:
+            pass
+
+    # PyTorch CUDA path.
+    if _module_available("torch"):
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                return "torch"
+        except Exception:
+            pass
+
+    # JAX accelerated devices path (GPU/TPU).
+    if _module_available("jax"):
+        try:
+            import jax
+
+            if any(d.platform in {"gpu", "tpu"} for d in jax.devices()):
+                return "jax"
+        except Exception:
+            pass
+
+    return None
+
+
+def _choose_partition_size_rows(total_memory_gb: float | None) -> int:
+    if total_memory_gb is None:
+        return 500_000
+    if total_memory_gb >= 128:
+        return 2_000_000
+    if total_memory_gb >= 64:
+        return 1_000_000
+    if total_memory_gb >= 16:
+        return 500_000
+    return 250_000
+
+
+def recommend_best_performance_config() -> Config:
+    """Recommend a hardware-aware config tuned for best throughput."""
+    workers = os.cpu_count() or 4
+    memory_gb = _detect_total_memory_gb()
+    partition_size_rows = _choose_partition_size_rows(memory_gb)
+
+    # Prefer HPC backend only when a cluster entrypoint is configured.
+    if (
+        os.getenv("FRAMEX_DASK_SCHEDULER_ADDRESS", "").strip()
+        or os.getenv("FRAMEX_RAY_ADDRESS", "").strip()
+        or os.getenv("FRAMEX_DASK_SLURM", "").strip() in {"1", "true", "True"}
+    ):
+        backend: BackendType = "hpc"
+    else:
+        backend = "threads"
+
+    kernel_backend: KernelBackendType = "python"
+    try:
+        from framex.backends.c_backend import C_AVAILABLE
+
+        if C_AVAILABLE:
+            kernel_backend = "c"
+    except Exception:
+        kernel_backend = "python"
+
+    gpu_backend = _detect_gpu_array_backend()
+    if gpu_backend is not None:
+        array_backend: ArrayBackendType = gpu_backend
+    elif _module_available("numexpr"):
+        array_backend = "numexpr"
+    elif _module_available("numba"):
+        array_backend = "numba"
+    else:
+        array_backend = "numpy"
+
+    return Config(
+        backend=backend,
+        workers=workers,
+        serializer="arrow",
+        partition_size_rows=partition_size_rows,
+        kernel_backend=kernel_backend,
+        array_backend=array_backend,
+    )
+
+
+def auto_configure_hardware(*, apply: bool = True) -> Config:
+    """Auto-detect hardware and configure FrameX for best performance.
+
+    Parameters
+    ----------
+    apply:
+        When True (default), applies the recommended config globally.
+        When False, returns the recommended config without mutating globals.
+    """
+    cfg = recommend_best_performance_config()
+    if apply:
+        global _current
+        _current = cfg
+    return cfg
 
 
 def get_config() -> Config:

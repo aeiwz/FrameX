@@ -182,6 +182,8 @@ Compression wrappers for `read_file` / `write_file`:
 ## Config
 
 - `fx.get_config()`
+- `fx.recommend_best_performance_config()`
+- `fx.auto_configure_hardware(apply=True)`
 - `fx.set_backend("threads"|"processes"|"ray"|"dask"|"hpc")`
 - `fx.set_workers(n)`
 - `fx.set_serializer("arrow"|"pickle5"|"pickle")`
