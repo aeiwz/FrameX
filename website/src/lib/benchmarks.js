@@ -4,6 +4,7 @@ import path from 'path'
 const resultsDir = path.join(process.cwd(), '../benchmarks/results')
 const resultsJsonPath = path.join(resultsDir, 'benchmark_results.json')
 const reportMdPath = path.join(resultsDir, 'benchmark_report.md')
+const workloadCheckPath = path.join(resultsDir, 'framex_workload_check.json')
 
 function readJson(pathname) {
   if (!fs.existsSync(pathname)) return null
@@ -79,6 +80,7 @@ function buildComparisons(rows, category) {
 
 export function getBenchmarkReportData() {
   const rows = readJson(resultsJsonPath)
+  const workloadChecks = readJson(workloadCheckPath)
   if (!Array.isArray(rows)) {
     return {
       available: false,
@@ -86,6 +88,7 @@ export function getBenchmarkReportData() {
       categories: {},
       highlights: null,
       rowCount: 0,
+      workloadChecks: Array.isArray(workloadChecks) ? workloadChecks : [],
     }
   }
 
@@ -123,6 +126,7 @@ export function getBenchmarkReportData() {
     generatedAt: readGeneratedAt(),
     categories,
     rowCount: rows.length,
+    workloadChecks: Array.isArray(workloadChecks) ? workloadChecks : [],
     highlights: {
       bestFramex,
       slowestFramex,
@@ -130,4 +134,3 @@ export function getBenchmarkReportData() {
     },
   }
 }
-

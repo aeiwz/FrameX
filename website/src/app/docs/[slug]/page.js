@@ -2,6 +2,7 @@ import { getDocBySlug, getDocSlugs, getDocsNav } from '@/lib/docs'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Link from 'next/link'
+import Mermaid from '@/components/Mermaid'
 
 export function generateStaticParams() {
   const files = getDocSlugs()
@@ -36,16 +37,16 @@ export default async function DocPage({ params }) {
 
   return (
     <div className="docs-layout">
-      <aside className="sidebar" aria-label="Documentation navigation">
+      <aside className="sidebar">
         {nav.map((group) => (
-          <div key={group.section} className="sidebar-group">
+          <div className="sidebar-group" key={group.section}>
             <h4>{group.section}</h4>
             <ul>
               {group.items.map((item) => (
                 <li key={item.slug}>
                   <Link
                     href={`/docs/${item.slug}`}
-                    className={item.slug === doc.slug ? 'active' : ''}
+                    className={item.slug === slug ? 'active' : undefined}
                   >
                     {item.title}
                   </Link>
@@ -57,8 +58,26 @@ export default async function DocPage({ params }) {
       </aside>
 
       <article className="prose">
-        {doc.meta.description ? <p className="doc-description">{doc.meta.description}</p> : null}
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.content}</ReactMarkdown>
+        {doc.meta?.description ? <p className="doc-description">{doc.meta.description}</p> : null}
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code(props) {
+              const {children, className, node, ...rest} = props
+              const match = /language-(\w+)/.exec(className || '')
+              if (match && match[1] === 'mermaid') {
+                return <Mermaid chart={String(children).replace(/\n$/, '')} />
+              }
+              return (
+                <code {...rest} className={className}>
+                  {children}
+                </code>
+              )
+            }
+          }}
+        >
+          {doc.content}
+        </ReactMarkdown>
       </article>
     </div>
   )

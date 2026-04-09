@@ -9,6 +9,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from framex.backends.array_accel import evaluate_ufunc, maybe_numba_jit
 from framex.config import get_config
 from framex.core.dtypes import DType, resolve_dtype
 from framex.runtime.executor import WorkerExecutor
@@ -188,6 +189,16 @@ class NDArray:
         """Alias for :meth:`apply_blocks`."""
         return self.apply_blocks(fn, workers=workers, backend=backend)
 
+    def jit_apply(
+        self,
+        fn: Callable[[np.ndarray[Any, Any]], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "threads",
+    ) -> NDArray:
+        """Apply a Numba-jitted function across blocks when Numba is available."""
+        return self.apply_blocks(maybe_numba_jit(fn), workers=workers, backend=backend)
+
     # -- Reductions ----------------------------------------------------------
 
     def sum(self) -> Any:
@@ -294,7 +305,7 @@ class NDArray:
             else:
                 np_inputs.append(np.asarray(inp))
 
-        result = ufunc(*np_inputs, **kwargs)
+        result = evaluate_ufunc(ufunc, np_inputs, kwargs)
         if isinstance(result, np.ndarray):
             return NDArray(result, dtype=str(result.dtype))
         return result
@@ -330,6 +341,28 @@ class NDArray:
         else:
             body = "[]"
         return f"NDArray(len={n}, chunks={self.num_chunks}, dtype={self.dtype}, data={body})"
+
+    def __getattr__(self, name: str) -> Any:
+        """Fallback to NumPy ndarray methods for missing NDArray APIs."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        arr = self.to_numpy()
+        attr = getattr(arr, name, None)
+        if attr is None:
+            raise AttributeError(f"'NDArray' object has no attribute {name!r}")
+
+        if callable(attr):
+            def _call(*args: Any, **kwargs: Any) -> Any:
+                out = attr(*args, **kwargs)
+                if isinstance(out, np.ndarray):
+                    if out.ndim == 1:
+                        return NDArray(out, dtype=str(out.dtype))
+                    return out
+                return out
+
+            return _call
+        return attr
 
 
 # ---------------------------------------------------------------------------

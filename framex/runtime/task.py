@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -60,7 +61,9 @@ class TaskGraph:
 
     @property
     def tasks(self) -> dict[str, Task]:
-        return dict(self._tasks)
+        # Exposed as a mutable mapping for scheduler hot paths to avoid
+        # per-execution dict copies.
+        return self._tasks
 
     def topological_order(self) -> list[str]:
         """Return task IDs in topological order (Kahn's algorithm)."""
@@ -71,7 +74,7 @@ class TaskGraph:
                 pass
             in_degree[task.task_id] = len(task.dependencies)
 
-        queue: list[str] = [tid for tid, deg in in_degree.items() if deg == 0]
+        queue: deque[str] = deque(tid for tid, deg in in_degree.items() if deg == 0)
         order: list[str] = []
 
         # Build adjacency: dep -> list of dependents
@@ -81,7 +84,7 @@ class TaskGraph:
                 dependents[dep].append(task.task_id)
 
         while queue:
-            tid = queue.pop(0)
+            tid = queue.popleft()
             order.append(tid)
             for dependent in dependents.get(tid, []):
                 in_degree[dependent] -= 1

@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [
   { name = "FrameX Contributors" }
 ]
-keywords = ["dataframe", "array", "analytics", "arrow", "pandas", "numpy", "parallel"]
+keywords = ["dataframe", "array", "analytics", "arrow", "dask", "ray", "numpy", "parallel"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -29,10 +29,28 @@ classifiers = [
 dependencies = [
   "pyarrow>=14.0",
   "numpy>=1.24",
-  "pandas>=2.0",
+  "dask[dataframe]>=2024.1.0",
+  "ray[data]>=2.9.0",
 ]
 
 [project.optional-dependencies]
+pandas_compat = [
+  "pandas>=2.0",
+]
+accel = [
+  "numexpr>=2.9",
+  "numba>=0.59",
+]
+gpu = [
+  "cupy-cuda12x>=13.0; platform_system!='Windows'",
+]
+ml_accel = [
+  "torch>=2.2",
+  "jax>=0.4.30",
+]
+pandas_fast = [
+  "modin[ray]>=0.30",
+]
 dev = [
   "pytest>=7.0",
   "pytest-benchmark",

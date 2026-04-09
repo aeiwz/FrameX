@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import os
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
@@ -63,6 +64,34 @@ class BenchmarkRow:
     seconds: float
     speedup_vs_native: float | None = None
     peak_rss_mb: float | None = None
+
+
+class _CliProgress:
+    """Minimal in-place CLI progress bar."""
+
+    def __init__(self, total_steps: int) -> None:
+        self.total_steps = max(1, total_steps)
+        self.completed = 0
+        self._render("Starting benchmark suite")
+
+    def _render(self, message: str) -> None:
+        width = 28
+        ratio = min(1.0, self.completed / self.total_steps)
+        filled = int(width * ratio)
+        bar = "#" * filled + "-" * (width - filled)
+        line = f"\r[{bar}] {self.completed}/{self.total_steps} {ratio * 100:6.2f}%  {message:<52}"
+        sys.stdout.write(line)
+        sys.stdout.flush()
+
+    def advance(self, message: str) -> None:
+        self.completed = min(self.total_steps, self.completed + 1)
+        self._render(message)
+
+    def finish(self) -> None:
+        self.completed = self.total_steps
+        self._render("Completed")
+        sys.stdout.write("\n")
+        sys.stdout.flush()
 
 
 def _median_time(
@@ -912,9 +941,14 @@ def _parse_workers(value: str) -> list[int]:
 
 
 def run_all(args: argparse.Namespace) -> tuple[pd.DataFrame, list[Path]]:
+    stage_steps = 5 + (1 if args.include_c_backend else 0)
+    output_steps = 3 + (0 if args.skip_plots else 1)
+    progress = _CliProgress(total_steps=stage_steps + output_steps)
+
     rows_out: list[BenchmarkRow] = []
 
     rows_out.extend(run_performance_benchmark(args.rows, args.repeats, args.warmups))
+    progress.advance("Performance benchmarks")
     rows_out.extend(
         run_single_core_benchmark(
             elements=args.array_elements,
@@ -922,6 +956,7 @@ def run_all(args: argparse.Namespace) -> tuple[pd.DataFrame, list[Path]]:
             warmups=args.warmups,
         )
     )
+    progress.advance("Single-core benchmark")
     rows_out.extend(
         run_parallel_benchmark(
             elements=args.array_elements,
@@ -930,6 +965,7 @@ def run_all(args: argparse.Namespace) -> tuple[pd.DataFrame, list[Path]]:
             warmups=args.warmups,
         )
     )
+    progress.advance("Parallel-processing benchmark")
     rows_out.extend(
         run_multiprocessing_benchmark(
             items=args.object_items,
@@ -938,9 +974,12 @@ def run_all(args: argparse.Namespace) -> tuple[pd.DataFrame, list[Path]]:
             warmups=args.warmups,
         )
     )
+    progress.advance("Multiprocessing benchmark")
     rows_out.extend(run_memory_benchmark(args.rows, args.repeats, args.warmups))
+    progress.advance("Memory benchmark")
     if args.include_c_backend:
         rows_out.extend(run_c_backend_benchmark(args.rows, args.repeats, args.warmups))
+        progress.advance("C-backend benchmark")
 
     df = pd.DataFrame([asdict(r) for r in rows_out])
 
@@ -949,15 +988,20 @@ def run_all(args: argparse.Namespace) -> tuple[pd.DataFrame, list[Path]]:
 
     _write_json(rows_out, out_dir / "benchmark_results.json")
     _write_csv(df, out_dir / "benchmark_results.csv")
+    progress.advance("Wrote JSON/CSV artifacts")
 
     plots: list[Path] = []
     if not args.skip_plots:
         plots.extend(_plot_performance(df, out_dir))
         plots.extend(_plot_parallel(df, out_dir))
         plots.extend(_plot_memory(df, out_dir))
+        progress.advance("Generated plots")
 
     md = _build_markdown_report(df, out_dir, args)
     (out_dir / "benchmark_report.md").write_text(md, encoding="utf-8")
+    progress.advance("Wrote Markdown report")
+    progress.advance("Finalized outputs")
+    progress.finish()
 
     return df, plots
 

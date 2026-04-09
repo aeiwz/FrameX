@@ -46,7 +46,11 @@ def _find_compiler() -> str | None:
 
 
 def _compile_kernels() -> bool:
-    """Compile c_kernels.c → c_kernels.so.  Returns True on success."""
+    """Compile c_kernels.c → c_kernels.so.  Returns True on success.
+
+    Tries progressively more conservative flag sets so hardware-specific
+    optimization never blocks the build.
+    """
     compiler = _find_compiler()
     if compiler is None:
         logger.warning(
@@ -55,34 +59,58 @@ def _compile_kernels() -> bool:
             ", ".join(_COMPILER_CANDIDATES),
         )
         return False
-    cmd = [
-        compiler, "-O2", "-shared", "-fPIC",
-        "-o", str(_LIB),
-        str(_SRC),
-        "-lm",
-    ]
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            logger.warning(
-                "FrameX C backend: compilation failed.\n%s\n%s",
-                result.stdout,
-                result.stderr,
+    enable_native = os.getenv("FRAMEX_NATIVE_OPT", "1").strip() not in {"0", "false", "False"}
+    enable_openmp = os.getenv("FRAMEX_ENABLE_OPENMP", "1").strip() not in {"0", "false", "False"}
+
+    base_flags = ["-O3", "-DNDEBUG", "-shared", "-fPIC"]
+    native_flags = ["-march=native", "-mtune=native", "-ffast-math", "-funroll-loops"] if enable_native else []
+
+    if "clang" in Path(compiler).name:
+        openmp_flags = ["-Xpreprocessor", "-fopenmp", "-lomp"]
+    else:
+        openmp_flags = ["-fopenmp"]
+
+    candidates: list[list[str]] = []
+    if enable_openmp:
+        candidates.append(base_flags + native_flags + ["-DFRAMEX_USE_OPENMP"] + openmp_flags)
+        candidates.append(base_flags + ["-DFRAMEX_USE_OPENMP"] + openmp_flags)
+    candidates.append(base_flags + native_flags)
+    candidates.append(base_flags)
+
+    errors: list[str] = []
+    for flags in candidates:
+        cmd = [compiler, *flags, "-o", str(_LIB), str(_SRC), "-lm"]
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=45,
             )
-            return False
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            errors.append(str(exc))
+            continue
+
+        if result.returncode == 0:
+            logger.info("FrameX C backend: compiled with flags: %s", " ".join(flags))
+            return True
+        errors.append(result.stderr or result.stdout or f"return code {result.returncode}")
+
+    logger.warning("FrameX C backend: compilation failed for all flag sets.\n%s", "\n---\n".join(errors[-3:]))
+    return False
+
+
+def _needs_rebuild() -> bool:
+    if not _LIB.exists():
         return True
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        logger.warning("FrameX C backend: compilation error: %s", exc)
-        return False
+    try:
+        return _SRC.stat().st_mtime > _LIB.stat().st_mtime
+    except OSError:
+        return True
 
 
 def _load_lib() -> ctypes.CDLL | None:
-    if not _LIB.exists():
+    if _needs_rebuild():
         if not _compile_kernels():
             return None
     try:

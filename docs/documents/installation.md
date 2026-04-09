@@ -37,10 +37,13 @@ print(fx.get_config())
 
 ## Optional Performance Tooling
 
-For benchmarking and profiling:
+Install extras based on your workload:
 
 ```bash
-pip install asv pyperf
+pip install framex[bench]      # benchmark suite deps
+pip install framex[accel]      # numexpr + numba
+pip install framex[gpu]        # cupy (CUDA)
+pip install framex[pandas_fast]  # modin backend
 ```
 
 ## Build and Test Locally

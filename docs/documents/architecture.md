@@ -13,7 +13,7 @@ FrameX is structured as a layered local execution engine:
 flowchart LR
     U["User API\nDataFrame / Series / NDArray"] --> P["Planner\nEager or Lazy"]
     P --> S["Scheduler / Executor\nTask orchestration"]
-    S --> W["Workers\nThreads or Processes"]
+    S --> W["Workers\nThreads / Processes / Ray / Dask"]
     W --> M[("Arrow Buffers\nSharedMemory / mmap")]
     M --> IO["IO Layer\nParquet / IPC / CSV"]
 ```
@@ -32,12 +32,25 @@ flowchart LR
 
 ## Concurrency Model
 
-FrameX provides thread and process backends:
+FrameX provides multiple execution backends:
 
 - threads for numeric paths that release the GIL
 - processes for Python-heavy/object-heavy tasks
+- Ray for local object-store-backed task execution
+- Dask for task-graph execution and compatibility with Dask runtime tooling
 
 `framex.runtime.executor.detect_backend(...)` and config controls determine backend behavior.
+
+## Array Acceleration
+
+`NDArray` ufunc execution supports configurable acceleration paths:
+
+- `numpy` (default)
+- `numexpr` for expression-heavy CPU kernels
+- `numba` for JIT-assisted functions
+- `cupy` for GPU-capable environments
+
+These are selected via `set_array_backend(...)` or the `config(...)` context manager.
 
 ## Memory and Transport
 
@@ -51,6 +64,6 @@ FrameX exposes compatibility as an interface layer:
 
 - dataframe interchange via `__dataframe__`
 - NumPy protocols via `__array_ufunc__` and `__array_function__`
-- explicit conversion methods to Pandas/Arrow
+- explicit conversion methods to Pandas/Arrow/Dask/Ray
 
 This allows internal optimization without requiring full internal Pandas semantics at every layer.

@@ -560,6 +560,13 @@ button:focus-visible,
   gap: 0.9rem;
 }
 
+.benchmark-workloads {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem;
+}
+
 .benchmark-section-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -613,6 +620,38 @@ button:focus-visible,
 
 .benchmark-table tbody tr:hover {
   background: var(--surface-soft);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.status-pass {
+  background: rgba(20, 184, 110, 0.15);
+  border-color: rgba(20, 184, 110, 0.3);
+}
+
+.status-partial {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.32);
+}
+
+.status-fail {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.32);
+}
+
+.status-not_applicable {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.35);
 }
 
 @keyframes rise-in {

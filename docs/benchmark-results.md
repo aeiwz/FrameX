@@ -12,6 +12,7 @@ Generated artifacts:
 - `benchmark_results.json`
 - `benchmark_results.csv`
 - `benchmark_report.md`
+- `framex_workload_check.json`
 - `performance_speedup.png` (if matplotlib installed)
 - `parallel_processing_scaling.png` (if matplotlib installed)
 - `multiprocessing_scaling.png` (if matplotlib installed)
@@ -51,3 +52,19 @@ Disable C backend benchmark section:
 ```bash
 python3 -m benchmarks.benchmark_suite --no-c-backend
 ```
+
+Run workload capability matrix check:
+
+```bash
+python3 -m benchmarks.check_framex_workloads
+```
+
+This check validates FrameX's advertised workload fit areas and writes structured results to:
+
+- `benchmarks/results/framex_workload_check.json`
+
+Latest local run snapshot (2026-04-09):
+
+- `PASS`: Single-machine ETL, Analytics joins, ML preprocessing, Large NumPy operations, Production streaming
+- `PARTIAL`: Distributed clusters (Ray/Dask not installed in this environment)
+- `PARTIAL`: GPU acceleration (CuPy not installed in this environment)

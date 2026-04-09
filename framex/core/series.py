@@ -9,6 +9,20 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 from framex.core.dtypes import DType, resolve_dtype
+from framex.pandas_engine import get_pandas_module
+
+
+def _wrap_pandas_series_result(value: Any) -> Any:
+    pd = get_pandas_module()
+    if isinstance(value, pd.Series):
+        return Series(value.to_numpy(), name=value.name)
+    if value.__class__.__name__ == "DataFrame" and value.__class__.__module__.startswith(
+        ("pandas.", "modin.pandas", "fireducks.pandas")
+    ):
+        from framex.core.dataframe import DataFrame
+
+        return DataFrame(value)
+    return value
 
 
 class Series:
@@ -61,8 +75,7 @@ class Series:
         return self._data.to_numpy()
 
     def to_pandas(self) -> Any:
-        import pandas as pd
-
+        pd = get_pandas_module()
         return pd.Series(self._data.to_pylist(), name=self.name)
 
     def to_pylist(self) -> list[Any]:
@@ -239,3 +252,21 @@ class Series:
             indices = range(start, stop, step)
             return Series(self._data.take(pa.array(list(indices), type=pa.int64())), name=self.name)
         raise TypeError(f"Invalid key type: {type(key)}")
+
+    def __getattr__(self, name: str) -> Any:
+        """Pandas-compat fallback for unimplemented Series APIs."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        pser = self.to_pandas()
+        attr = getattr(pser, name, None)
+        if attr is None:
+            raise AttributeError(f"'Series' object has no attribute {name!r}")
+
+        if callable(attr):
+            def _call(*args: Any, **kwargs: Any) -> Any:
+                out = attr(*args, **kwargs)
+                return _wrap_pandas_series_result(out)
+
+            return _call
+        return _wrap_pandas_series_result(attr)

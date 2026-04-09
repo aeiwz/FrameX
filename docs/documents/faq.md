@@ -18,6 +18,17 @@ Use `.lazy()` when you have long transformation chains and want to defer executi
 ## Does FrameX support NumPy operations?
 
 Yes. `NDArray` implements NumPy protocol hooks, so many ufuncs and array functions interoperate directly.
+You can also choose array execution backends (`auto`, `numpy`, `numexpr`, `numba`, `torch`, `jax`, `cupy`) with `set_array_backend(...)`.
+
+## Does FrameX support Ray or Dask?
+
+Yes, as optional execution/runtime integrations:
+
+- `set_backend("ray")` and `set_backend("dask")` for partition execution paths
+- interchange helpers `from_dask(...)` and `from_ray(...)`
+- conversions `.to_dask()` and `.to_ray()`
+
+FrameX remains single-machine-first; distributed multi-node orchestration is not a primary design target.
 
 ## How should I migrate from Pandas?
 
@@ -39,3 +50,4 @@ Use runtime config APIs:
 - `set_workers(...)`
 - `set_serializer(...)`
 - `set_kernel_backend(...)`
+- `set_array_backend(...)`

@@ -30,9 +30,21 @@ function formatRss(value) {
   return `${value.toFixed(2)} MB`
 }
 
+function formatMillis(seconds) {
+  if (seconds == null || Number.isNaN(seconds)) return '—'
+  return `${(seconds * 1000).toFixed(2)} ms`
+}
+
 function winnerLabel(row) {
   if (!row.winner) return '—'
   return row.winner === row.rightEngine ? 'FrameX Side' : 'Baseline Side'
+}
+
+function statusLabel(status) {
+  if (status === 'pass') return 'PASS'
+  if (status === 'partial') return 'PARTIAL'
+  if (status === 'not_applicable') return 'N/A'
+  return 'FAIL'
 }
 
 function HighlightCard({ title, row }) {
@@ -136,7 +148,40 @@ export default function BenchmarksPage() {
           )
         })}
       </section>
+
+      {data.workloadChecks?.length ? (
+        <section className="benchmark-workloads" aria-labelledby="workload-matrix-title">
+          <div className="benchmark-section-head">
+            <h2 id="workload-matrix-title">Workload Capability Matrix Check</h2>
+            <p>Automated runtime checks from <code>benchmarks.check_framex_workloads</code>.</p>
+          </div>
+
+          <div className="benchmark-table-wrap">
+            <table className="benchmark-table">
+              <thead>
+                <tr>
+                  <th scope="col">Workload</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Runtime</th>
+                  <th scope="col">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.workloadChecks.map((row) => (
+                  <tr key={row.workload}>
+                    <th scope="row">{row.workload}</th>
+                    <td>
+                      <span className={`status-pill status-${row.status}`}>{statusLabel(row.status)}</span>
+                    </td>
+                    <td>{formatMillis(row.seconds)}</td>
+                    <td>{row.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
     </section>
   )
 }
-

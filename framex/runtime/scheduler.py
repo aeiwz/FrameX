@@ -30,7 +30,14 @@ class LocalScheduler:
         if not tasks:
             return {}
 
-        order = graph.topological_order()
+        # Hot-path optimization: independent tasks are common in benchmarks and
+        # partition-map operations; skip topological sort in that case.
+        if all(not t.dependencies for t in tasks.values()):
+            order = list(tasks.keys())
+            independent = True
+        else:
+            order = graph.topological_order()
+            independent = False
         results: dict[str, Any] = {}
 
         executor = WorkerExecutor(
@@ -39,8 +46,7 @@ class LocalScheduler:
         )
 
         with executor:
-            # Fast path: common case in benchmarks where tasks are independent.
-            if all(not tasks[tid].dependencies for tid in order):
+            if independent:
                 futures = {
                     tid: executor.submit(tasks[tid].fn, *tasks[tid].args, **tasks[tid].kwargs)
                     for tid in order

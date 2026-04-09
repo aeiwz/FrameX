@@ -8,6 +8,7 @@ It combines:
 - NumPy-compatible chunked arrays (`NDArray` with NumPy protocol support)
 - Arrow-native storage/interop (`to_arrow`, Parquet/IPC I/O)
 - Eager execution with optional lazy pipelines (`.lazy().collect()`)
+- Runtime backends for local threads/processes plus optional Ray/Dask executors
 
 ## Why FrameX
 
@@ -38,7 +39,8 @@ pip install -e .
 Requirements:
 
 - Python `>=3.10`
-- Core dependencies: `pyarrow`, `numpy`, `pandas`
+- Core dependencies: `pyarrow`, `numpy`, `dask`, `ray`
+- Optional compatibility: `pandas` (`pip install framex[pandas_compat]`)
 
 ## Quick Start
 
@@ -75,9 +77,35 @@ Main objects and helpers:
 
 - `fx.DataFrame`, `fx.Series`, `fx.Index`, `fx.LazyFrame`
 - `fx.NDArray`, `fx.array(...)`
-- `fx.read_parquet`, `fx.write_parquet`, `fx.read_ipc`, `fx.write_ipc`, `fx.read_csv`
-- `fx.from_pandas`, `fx.from_dataframe`
+- `fx.read_parquet`, `fx.write_parquet`, `fx.read_ipc`, `fx.write_ipc`, `fx.read_csv`, `fx.write_csv`
+- `fx.read_json`, `fx.write_json`, `fx.read_ndjson`, `fx.write_ndjson`
+- `fx.read_file`, `fx.write_file` for format auto-detection
+
+Compression:
+- transparent extension-based compression for `read_file` / `write_file`
+- supported wrappers: `.gz`, `.bz2`, `.xz`, `.zip`, and `.zst`/`.zstd` (when `zstandard` is installed)
+- `fx.from_pandas`, `fx.from_dask`, `fx.from_ray`, `fx.from_dataframe`
 - `fx.get_config`, `fx.set_backend`, `fx.set_workers`, `fx.set_serializer`, `fx.set_kernel_backend`
+- `fx.set_array_backend` for auto/NumExpr/Numba/JAX/PyTorch/CuPy acceleration modes
+- `fx.StreamProcessor` for micro-batch streaming pipelines
+
+Acceleration extras:
+
+```bash
+pip install framex[accel]      # numexpr + numba
+pip install framex[gpu]        # cupy (CUDA)
+pip install framex[ml_accel]   # jax + pytorch
+```
+
+Backend notes:
+
+- `fx.set_backend("threads" | "processes" | "ray" | "dask" | "hpc")`
+- Ray and Dask execution backends require their respective runtimes to be installed/available.
+- HPC mode (`"hpc"`) uses cluster-oriented execution via Dask or Ray:
+  - `FRAMEX_HPC_ENGINE=dask|ray`
+  - `FRAMEX_DASK_SCHEDULER_ADDRESS=<tcp://...>` to connect existing Dask clusters
+  - `FRAMEX_RAY_ADDRESS=<ray://...>` to connect existing Ray clusters
+  - optional SLURM bootstrap: `FRAMEX_DASK_SLURM=1` (requires `dask-jobqueue`)
 
 ## Documentation
 

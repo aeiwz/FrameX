@@ -44,8 +44,11 @@ FrameX can sit between Arrow-heavy and Pandas/NumPy-heavy parts of a pipeline.
 Useful boundaries:
 
 - `from_pandas(...)`
+- `from_dask(...)`
+- `from_ray(...)`
 - `from_dataframe(...)`
 - `.to_arrow()` for Arrow-first systems
+- `.to_dask()` / `.to_ray()` for pipeline handoff
 
 ## 5. Incremental Adoption in Existing Codebases
 
@@ -60,5 +63,5 @@ Suggested order:
 ## When Not to Use FrameX (Yet)
 
 - strict requirement for complete Pandas API parity
-- workloads that already require distributed clusters
+- workloads that require full multi-node distributed orchestration
 - pipelines dominated by custom Python object logic where Arrow typing is minimal

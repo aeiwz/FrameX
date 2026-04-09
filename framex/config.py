@@ -8,9 +8,10 @@ from dataclasses import dataclass, field, replace
 from typing import Iterator, Literal
 
 
-BackendType = Literal["threads", "processes"]
+BackendType = Literal["threads", "processes", "ray", "dask", "hpc"]
 SerializerType = Literal["arrow", "pickle5", "pickle"]
 KernelBackendType = Literal["python", "c"]
+ArrayBackendType = Literal["auto", "numpy", "numexpr", "numba", "cupy", "torch", "jax"]
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class Config:
     serializer: SerializerType = "arrow"
     partition_size_rows: int = 500_000
     kernel_backend: KernelBackendType = "python"
+    array_backend: ArrayBackendType = "auto"
 
 
 # Module-level mutable state — guarded by accessor functions.
@@ -65,6 +67,27 @@ def set_kernel_backend(kernel_backend: KernelBackendType) -> None:
     _current = replace(_current, kernel_backend=kernel_backend)
 
 
+def set_array_backend(array_backend: ArrayBackendType) -> None:
+    """Switch NDArray ufunc backend.
+
+    Supported backends:
+    - ``"auto"``: try accelerated engines in order, then NumPy fallback
+    - ``"numpy"``: default NumPy execution
+    - ``"numexpr"``: accelerated expressions when numexpr is installed
+    - ``"numba"``: JIT-friendly execution path (fallbacks when unsupported)
+    - ``"cupy"``: GPU execution when CuPy is installed
+    - ``"torch"``: tensor execution path when PyTorch is installed
+    - ``"jax"``: XLA-backed execution path when JAX is installed
+    """
+    if array_backend not in ("auto", "numpy", "numexpr", "numba", "cupy", "torch", "jax"):
+        raise ValueError(
+            "array_backend must be 'auto', 'numpy', 'numexpr', 'numba', 'cupy', 'torch', or 'jax', "
+            f"got {array_backend!r}"
+        )
+    global _current
+    _current = replace(_current, array_backend=array_backend)
+
+
 @contextmanager
 def config(
     *,
@@ -73,6 +96,7 @@ def config(
     serializer: SerializerType | None = None,
     partition_size_rows: int | None = None,
     kernel_backend: KernelBackendType | None = None,
+    array_backend: ArrayBackendType | None = None,
 ) -> Iterator[Config]:
     """Context manager that temporarily overrides global config."""
     global _current
@@ -88,6 +112,8 @@ def config(
         overrides["partition_size_rows"] = partition_size_rows
     if kernel_backend is not None:
         overrides["kernel_backend"] = kernel_backend
+    if array_backend is not None:
+        overrides["array_backend"] = array_backend
     _current = replace(prev, **overrides)
     try:
         yield _current

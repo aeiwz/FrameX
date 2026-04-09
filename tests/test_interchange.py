@@ -8,7 +8,7 @@ import pytest
 
 import framex as fx
 from framex.core.dataframe import DataFrame
-from framex.interchange.dataframe_protocol import from_dataframe, from_pandas
+from framex.interchange.dataframe_protocol import from_dataframe, from_pandas, from_dask, from_ray
 from framex.interchange.numpy_protocols import implements_array_function, implements_array_ufunc
 
 
@@ -77,3 +77,22 @@ class TestNumpyProtocols:
 
     def test_array_function_implemented(self):
         assert implements_array_function()
+
+
+class TestDaskInterop:
+    def test_from_dask(self):
+        dd = pytest.importorskip("dask.dataframe")
+        pdf = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        ddf = dd.from_pandas(pdf, npartitions=2)
+        df = from_dask(ddf)
+        assert isinstance(df, DataFrame)
+        assert df["a"].to_pylist() == [1, 2, 3]
+
+
+class TestRayInterop:
+    def test_from_ray(self):
+        rd = pytest.importorskip("ray.data")
+        ds = rd.from_items([{"a": 1}, {"a": 2}, {"a": 3}])
+        df = from_ray(ds)
+        assert isinstance(df, DataFrame)
+        assert df["a"].to_pylist() == [1, 2, 3]

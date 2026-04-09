@@ -15,6 +15,8 @@ It combines:
 - Pandas-like tabular APIs (`DataFrame`, `Series`, `GroupBy`)
 - NumPy dispatch support for array workflows (`NDArray`, `__array_ufunc__`, `__array_function__`)
 - Optional lazy execution (`.lazy().collect()`) for multi-step query planning
+- Runtime backend selection (`threads`, `processes`, optional `ray`, optional `dask`)
+- Micro-batch streaming pipeline support via `StreamProcessor`
 
 ## Why FrameX
 
@@ -45,8 +47,11 @@ If you need strict 1:1 Pandas behavior everywhere, use `to_pandas()` at boundari
 FrameX supports explicit interchange paths:
 
 - `from_pandas(pdf)`
+- `from_dask(ddf)`
+- `from_ray(ds)`
 - `from_dataframe(obj)` for `__dataframe__` protocol objects
 - `.to_pandas()`, `.to_arrow()`, `.to_pydict()`
+- `.to_dask()`, `.to_ray()`
 - `framex.array(...)` for NDArray creation with chunking
 
 Continue with [Getting Started](/docs/getting_started) for first-run setup and a complete walkthrough.
