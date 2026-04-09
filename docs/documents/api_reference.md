@@ -1,80 +1,167 @@
-# FrameX API Reference
-
-This document outlines the core public surface of the FrameX library.
-
-## Core Data Structures
-
-### `DataFrame`
-A partitioned, Arrow-backed dataframe. Eager by default.
-- **Creation**: `DataFrame(data, schema=None)` (accepts dictionaries, pandas DataFrames, pyarrow Tables, or lists of Partitions).
-- **Properties**: `.schema`, `.columns`, `.dtypes`, `.shape`, `.num_rows`, `.num_partitions`.
-- **Conversion**: `.to_arrow()`, `.to_pandas()`, `.to_pydict()`.
-- **Projection / Filtering**: 
-  - `df.select(columns: list[str])`
-  - `df.filter(mask: Series)`
-  - `df.drop(columns)`
-- **Aggregation / Grouping**:
-  - `df.groupby(keys)` -> `GroupBy`
-  - `df.sort(by, ascending=True)`
-- **Mutation (Returns New df)**:
-  - `df.with_column(name, series)`
-  - `df.assign(**kwargs)`
-  - `df.rename(columns_dict)`
-  - `df.dropna(subset, how="any")`
-  - `df.fillna(value)`
-  - `df.drop_duplicates(subset)`
-- **Join**:
-  - `df.join(other_df, on, how="inner")`
-- **Execution Mode**:
-  - `df.lazy()` -> `LazyFrame`
-
-### `LazyFrame`
-A deferred execution query builder. Methods match `DataFrame` but return a new `LazyFrame`.
-- **Execution**: `lf.collect()` executes the recorded operations sequentially/optimally and returns an eager `DataFrame`.
-
-### `Series`
-A 1D chunked Arrow-backed array representing a DataFrame column.
-- Provides standard series math, string matching, and element-wise transforms.
-
-### `NDArray` (`framex.array`)
-An N-dimensional array supporting optional chunking for parallel workloads.
-- Fully compatible with `__array_ufunc__` and `__array_function__`.
-- Designed to handle element-wise parallel execution seamlessly.
-
-### `Index`
-A DataFrame index supporting alignment logic (inspired by Pandas but Arrow-first).
-
+---
+title: API Reference
+description: Public FrameX API surface by module.
+order: 8
+section: Reference
 ---
 
-## IO Operations (`framex.io`)
+# API Reference
 
-FrameX interacts optimally with Parquet and Arrow IPC schemas.
+## Top-Level Imports
 
-- `read_parquet(path)`: Loads partitioned Parquet data into a `DataFrame`.
-- `write_parquet(df, path)`: Dumps a `DataFrame` to partitioned Parquet files.
-- `read_ipc(path)`: Fast load of Arrow IPC structured binaries.
-- `write_ipc(df, path)`: Fast write.
-- `read_csv(path)`: Read traditional text data using the fast PyArrow CSV bindings.
+```python
+import framex as fx
+```
 
----
+Key exports:
 
-## Configuration (`framex.config`)
+- `DataFrame`, `Series`, `Index`, `LazyFrame`, `NDArray`
+- IO: `read_parquet`, `write_parquet`, `read_ipc`, `write_ipc`, `read_csv`
+- Interchange: `from_pandas`, `from_dataframe`
+- Config: `get_config`, `set_backend`, `set_workers`, `set_serializer`, `set_kernel_backend`
+- Array constructor: `array(...)`
 
-Configure your runtime preferences:
-- `set_workers(n)`: Change the target core utilization.
-- `set_backend(name)`: Explicitly define thread or process engine ("threads", "processes", "auto").
+## DataFrame (`framex.core.dataframe.DataFrame`)
 
----
+Creation:
 
-## Window Functions (`framex.ops.window`)
+- `DataFrame(data, schema=None)`
 
-Analytic routines optimized for rolling operations on partitions:
-- `rolling_mean`, `rolling_sum`, `rolling_std`, `rolling_min`, `rolling_max`
-- `top_k`, `rank`
+Shape and metadata:
 
----
+- `.schema`, `.columns`, `.dtypes`, `.shape`
+- `.num_rows`, `.num_columns`, `.num_partitions`
 
-## Interchange / Interop Protocols
+Conversion:
 
-- `from_pandas(pdf)`: Direct zero-copy (when possible) handoff from Pandas.
-- `from_dataframe(df_protocol_object)`: Accepts any object implementing the standard Python Consortium `__dataframe__` protocol.
+- `.to_arrow()`
+- `.to_pandas()`
+- `.to_pydict()`
+
+Selection and filtering:
+
+- `df[col]`
+- `df[[col1, col2]]`
+- `.column(name)`
+- `.select(columns)`
+- `.filter(mask_series)`
+- `.drop(columns)`
+
+Transformations:
+
+- `.with_column(name, series)`
+- `.assign(**kwargs)`
+- `.rename({old: new})`
+- `.fillna(value, subset=None)`
+- `.dropna(subset=None, how="any"|"all")`
+- `.drop_duplicates(subset=None)`
+
+Analytics:
+
+- `.groupby(keys).agg({...})`
+- `.sort(by, ascending=True|[...])`
+- `.nunique()`
+- `.describe()`
+- `.sample(n=None, frac=None, seed=None)`
+- `.head(n=5)`, `.tail(n=5)`
+
+Join:
+
+- `.join(other, on, how="inner"|"left"|"right"|"outer")`
+
+Lazy:
+
+- `.lazy()` returns `LazyFrame`
+
+## GroupBy
+
+Methods:
+
+- `.agg({"col": "sum" | ["sum", "mean", ...]})`
+- `.sum()`, `.mean()`, `.count()`
+
+Supported aggregation names in `.agg`:
+
+- `sum`, `mean`, `min`, `max`, `count`, `std`, `count_distinct`
+
+## LazyFrame
+
+Methods:
+
+- `.filter(mask_or_callable)`
+- `.select(columns)`
+- `.groupby(keys).agg(...)`
+- `.sort(by, ascending=...)`
+- `.join(other, on, how=...)`
+- `.with_column(name, value_or_callable)`
+- `.drop(columns)`
+- `.rename(mapping)`
+- `.collect()`
+
+## Series (`framex.core.series.Series`)
+
+Conversions:
+
+- `.to_pyarrow()`, `.to_numpy()`, `.to_pandas()`, `.to_pylist()`
+
+Reductions:
+
+- `.sum()`, `.mean()`, `.min()`, `.max()`, `.count()`, `.std()`, `.var()`, `.nunique()`
+
+Utilities:
+
+- `.unique()`, `.value_counts()`
+- `.map(fn)`, `.apply(fn)`
+- `.abs()`, `.round(decimals=0)`, `.clip(lower=None, upper=None)`
+- `.dropna()`, `.is_null()`, `.fill_null(value)`, `.cast(dtype)`
+- `.isin(values)`
+
+Operators:
+
+- arithmetic (`+`, `-`, `*`, `/`)
+- comparisons (`==`, `!=`, `>`, `>=`, `<`, `<=`)
+- logical (`&`, `|`, `~`)
+
+## NDArray (`framex.core.array.NDArray`)
+
+Creation:
+
+- `fx.array(data, dtype=None, chunks=None)`
+- `NDArray(...)`
+
+Properties:
+
+- `.dtype`, `.shape`, `.ndim`, `.num_chunks`
+
+Methods:
+
+- `.to_numpy()`, `.to_pyarrow()`
+- `.sum()`, `.mean()`, `.min()`, `.max()`, `.std()`
+
+NumPy protocol support:
+
+- `__array__`
+- `__array_ufunc__` (e.g., `np.sin`, `np.log`)
+- `__array_function__` support for key functions (`np.sum`, `np.mean`, `np.concatenate`, `np.where`, etc.)
+
+## IO
+
+- `fx.read_parquet(path, columns=None, **kwargs)`
+- `fx.write_parquet(df, path, **kwargs)`
+- `fx.read_ipc(path)`
+- `fx.write_ipc(df, path)`
+- `fx.read_csv(path, **kwargs)`
+
+## Interchange
+
+- `fx.from_pandas(pdf)`
+- `fx.from_dataframe(obj)`
+
+## Config
+
+- `fx.get_config()`
+- `fx.set_backend("threads"|"processes")`
+- `fx.set_workers(n)`
+- `fx.set_serializer("arrow"|"pickle5"|"pickle")`
+- `fx.set_kernel_backend("python"|"c")`
+- `fx.config(...)` context manager for temporary overrides

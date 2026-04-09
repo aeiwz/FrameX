@@ -1,98 +1,88 @@
-# Getting Started with FrameX
+---
+title: Getting Started
+description: Install FrameX and run your first end-to-end dataframe pipeline.
+order: 2
+section: Introduction
+---
 
-FrameX is an Arrow-backed parallel dataframe and array library that mirrors Pandas and NumPy semantics while delivering multi-processing concurrency natively to your local workstation.
+# Getting Started
 
-## Installation
+This guide takes you from install to a complete mini pipeline: load data, transform it, aggregate it, and export results.
+
+## 1. Install
 
 ```bash
 pip install framex
 ```
 
-## Creating a DataFrame
-
-FrameX eagerly accepts data from Native Python, Pandas, and PyArrow.
+## 2. Import and Create a DataFrame
 
 ```python
 import framex as fx
-import pandas as pd
 
-# From raw python dict
-df1 = fx.DataFrame({"A": [1, 2, 3], "B": ["x", "y", "z"]})
-
-# From Pandas
-pdf = pd.DataFrame({"A": [1, 2, 3], "B": ["x", "y", "z"]})
-df2 = fx.from_pandas(pdf)
-```
-
-## Eager vs Lazy Execution
-
-FrameX `DataFrame` objects are eager by default. Modifications to the frame run sequentially and immediately. 
-If you have a large cascade of operations (filters, joins, assignments), you can use `.lazy()` to build an execution plan and `.collect()` to finalize it. 
-
-FrameX uses an intelligent runtime heuristic: **Threads** are used for numeric structures where the Global Interpreter Lock (GIL) is released, and **Processes** are utilized for object/string heavy operations!
-
-### Eager Filtering
-
-```python
-# Create a dummy parquet file
-# fx.write_parquet(df, "data.parquet")
-
-df = fx.read_parquet("data.parquet")
-
-# Filter data
-filtered = df.filter(df["A"] > 5)
-
-# Calculate aggregations
-summary = filtered.groupby(["B"]).agg({"A": "mean"})
-
-print(summary)
-```
-
-### Lazy Execution Workflow
-
-```python
-df = fx.read_parquet("large_data.parquet")
-
-# Build query logic
-query = (
-    df.lazy()
-    .filter(lambda d: d["A"] >= 100)
-    .with_column("A_Squared", lambda d: d["A"] * d["A"])
-    .select(["B", "A_Squared"])
-    .groupby("B")
-    .agg({"A_Squared": "sum"})
+df = fx.DataFrame(
+    {
+        "customer_id": [101, 102, 101, 103, 102],
+        "country": ["TH", "US", "TH", "JP", "US"],
+        "amount": [120.0, 80.5, 45.0, 220.0, 99.5],
+        "is_refund": [False, False, True, False, False],
+    }
 )
 
-# Execute query operations parallelized and optimized
-result_df = query.collect()
+print(df.shape)        # (5, 4)
+print(df.columns)      # ['customer_id', 'country', 'amount', 'is_refund']
 ```
 
-## Parallel NumPy Semantics
-
-FrameX isn't just about DataFrames. It features an `NDArray` that natively dispatches to NumPy semantics while allowing underlying multiprocessing capabilities via chunks.
+## 3. Filter and Add a Derived Column
 
 ```python
-import numpy as np
-import framex as fx
+clean = df.filter(~df["is_refund"])
 
-# Build a chunked 10-million row array
-x = fx.array(data=np.random.rand(10_000_000), chunks=1_000_000)
-
-# Native numpy functions delegate correctly!
-y = np.sin(x) + np.log(x)
-
-# Triggers parallel reduction compute
-total = y.sum().compute()
+enriched = clean.assign(
+    amount_with_tax=lambda d: d["amount"] * 1.07,
+)
 ```
 
-## Seamless Interchange
-
-Need to return to standard tools after doing your heavy lifting? FrameX relies natively on the Apache Arrow format, making export extremely cheap and often zero-copy.
+## 4. Group and Aggregate
 
 ```python
-# Move back to pandas easily.
-pandas_df = result_df.to_pandas()
+summary = (
+    enriched
+    .groupby("country")
+    .agg({"amount": ["sum", "mean", "count"]})
+    .sort("amount_sum", ascending=False)
+)
 
-# Or move directly to pyarrow representations.
-arrow_table = result_df.to_arrow()
+print(summary.to_pandas())
 ```
+
+## 5. Write and Read Parquet
+
+```python
+fx.write_parquet(summary, "country_summary.parquet")
+roundtrip = fx.read_parquet("country_summary.parquet")
+```
+
+## 6. Convert to Pandas or Arrow
+
+```python
+pdf = roundtrip.to_pandas()
+table = roundtrip.to_arrow()
+```
+
+## 7. Optional Lazy Mode
+
+For longer transformation chains:
+
+```python
+lazy_result = (
+    df.lazy()
+    .filter(lambda d: ~d["is_refund"])
+    .with_column("amount_with_tax", lambda d: d["amount"] * 1.07)
+    .groupby("country")
+    .agg({"amount_with_tax": "sum"})
+    .collect()
+)
+```
+
+Move on to [Tutorial: ETL Pipeline](/docs/tutorial_etl_pipeline) for a realistic scenario.
