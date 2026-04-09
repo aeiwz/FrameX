@@ -1,0 +1,24 @@
+{
+    "version": 1,
+    "project": "framex",
+    "project_url": "https://github.com/aeiwz/framex",
+    "repo": ".",
+    "branches": ["main"],
+    "environment_type": "virtualenv",
+    "install_command": ["python -mpip install {wheel_file}"],
+    "show_commit_url": "https://github.com/aeiwz/framex/commit/",
+    "pythons": ["3.11", "3.12", "3.13"],
+    "matrix": {
+        "pyarrow": ["14", "15", "16"],
+        "numpy": ["1.26", "2.0"]
+    },
+    "benchmark_dir": "benchmarks",
+    "results_dir": ".asv/results",
+    "html_dir": ".asv/html",
+    "env_dir": ".asv/env",
+    "build_cache_size": 2,
+    "build_command": [
+        "python setup.py build_ext --inplace"
+    ],
+    "rng_seed": 42
+}

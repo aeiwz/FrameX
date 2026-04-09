@@ -1,0 +1,95 @@
+Metadata-Version: 2.4
+Name: framex
+Version: 0.1.0
+Summary: High-performance parallel dataframe and array processing with Arrow-backed storage
+Author: FrameX Contributors
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/kawa-technology/FrameX
+Project-URL: Repository, https://github.com/kawa-technology/FrameX
+Project-URL: Issues, https://github.com/kawa-technology/FrameX/issues
+Project-URL: Documentation, https://github.com/kawa-technology/FrameX/tree/main/docs
+Keywords: dataframe,array,analytics,arrow,pandas,numpy,parallel
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyarrow>=14.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-benchmark; extra == "dev"
+Requires-Dist: hypothesis; extra == "dev"
+Provides-Extra: bench
+Requires-Dist: matplotlib>=3.8; extra == "bench"
+Requires-Dist: psutil>=5.9; extra == "bench"
+Provides-Extra: release
+Requires-Dist: build>=1.2.2; extra == "release"
+Requires-Dist: twine>=5.1.1; extra == "release"
+Dynamic: license-file
+
+# FrameX
+
+FrameX is a high-performance Python library for parallel dataframe and array processing.
+It combines Pandas-like DataFrame APIs and NumPy-style array semantics with Arrow-backed memory layouts.
+
+## Highlights
+
+- Arrow-backed `DataFrame` and `Series`
+- Chunked `NDArray` with NumPy dispatch (`__array_ufunc__`, `__array_function__`)
+- Eager operations with optional lazy pipelines
+- Thread/process scheduler primitives
+- Zero-copy transport paths via shared memory and mmap helpers
+
+## Install
+
+```bash
+pip install framex
+```
+
+## Quick Example
+
+```python
+import framex as fx
+
+# DataFrame operations
+left = fx.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
+right = fx.DataFrame({"id": [2, 3], "score": [200, 300]})
+
+result = (
+    left
+    .join(right, on="id", how="inner")
+    .filter(left["value"] > 15)
+)
+
+print(result.to_pandas())
+
+# NDArray operations
+arr = fx.array([1.0, 2.0, 3.0], dtype="float64")
+print(arr.sum())
+```
+
+## Development
+
+```bash
+python3 -m pip install -e '.[dev,bench,release]'
+python3 -m pytest -q
+python3 -m benchmarks.benchmark_suite
+```
+
+## Publishing
+
+See [docs/PYPI_RELEASE.md](docs/PYPI_RELEASE.md) for TestPyPI and PyPI upload steps.
+
+## License
+
+MIT

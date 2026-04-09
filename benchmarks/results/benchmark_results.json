@@ -1,0 +1,462 @@
+[
+  {
+    "category": "performance",
+    "scenario": "filter_val2_gt_500",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0006083483125394196,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "filter_val2_gt_500",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.000609538406251886,
+    "speedup_vs_native": 0.9980475492598005,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "groupby_key_sum_mean",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0014983502812810912,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "groupby_key_sum_mean",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.000975951812506537,
+    "speedup_vs_native": 1.5352707603799396,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "sort_val1",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.017561542001203634,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "sort_val1",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.017764562500815373,
+    "speedup_vs_native": 0.9885716014901903,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "join_inner",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0013017786563978007,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "join_inner",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.001799401031121306,
+    "speedup_vs_native": 0.723451100606845,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "ndarray_sum",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 3.340889453085083e-05,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "ndarray_sum",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 3.936991308250981e-05,
+    "speedup_vs_native": 0.8485894916972225,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "ndarray_np_sin_dispatch",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0012482968750191503,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "performance",
+    "scenario": "ndarray_np_sin_dispatch",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0013861627812730148,
+    "speedup_vs_native": 0.9005413302705674,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "single_core",
+    "scenario": "numeric_kernel",
+    "engine": "native",
+    "size": 2000000,
+    "workers": 1,
+    "seconds": 0.0009619596251013718,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "single_core",
+    "scenario": "numeric_kernel",
+    "engine": "framex",
+    "size": 2000000,
+    "workers": 1,
+    "seconds": 0.0010157317813082045,
+    "speedup_vs_native": 0.9470606736971671,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "native",
+    "size": 2000000,
+    "workers": 1,
+    "seconds": 0.0010336796874526044,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "framex",
+    "size": 2000000,
+    "workers": 1,
+    "seconds": 0.000986639312486659,
+    "speedup_vs_native": 1.0476773775082893,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "native",
+    "size": 2000000,
+    "workers": 2,
+    "seconds": 0.000611158843753401,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "framex",
+    "size": 2000000,
+    "workers": 2,
+    "seconds": 0.0006650677031529995,
+    "speedup_vs_native": 0.9189422984396572,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "native",
+    "size": 2000000,
+    "workers": 4,
+    "seconds": 0.0004948365937025301,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "framex",
+    "size": 2000000,
+    "workers": 4,
+    "seconds": 0.0005200247500170008,
+    "speedup_vs_native": 0.9515635432474181,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "native",
+    "size": 2000000,
+    "workers": 8,
+    "seconds": 0.0005986074219208604,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "parallel_processing",
+    "scenario": "numeric_kernel_threads",
+    "engine": "framex",
+    "size": 2000000,
+    "workers": 8,
+    "seconds": 0.000638796234397887,
+    "speedup_vs_native": 0.9370866478026321,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "native",
+    "size": 400000,
+    "workers": 1,
+    "seconds": 0.5121354580041952,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "framex",
+    "size": 400000,
+    "workers": 1,
+    "seconds": 0.5218715000009979,
+    "speedup_vs_native": 0.9813439860257093,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "native",
+    "size": 400000,
+    "workers": 2,
+    "seconds": 0.4948543749997043,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "framex",
+    "size": 400000,
+    "workers": 2,
+    "seconds": 0.49576374999742256,
+    "speedup_vs_native": 0.9981657089738348,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "native",
+    "size": 400000,
+    "workers": 4,
+    "seconds": 0.4959858330039424,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "framex",
+    "size": 400000,
+    "workers": 4,
+    "seconds": 0.49152083299850347,
+    "speedup_vs_native": 1.0090840503711722,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "native",
+    "size": 400000,
+    "workers": 8,
+    "seconds": 0.5731420000010985,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "multiprocessing",
+    "scenario": "object_kernel_processes",
+    "engine": "framex",
+    "size": 400000,
+    "workers": 8,
+    "seconds": 0.5749084589988342,
+    "speedup_vs_native": 0.9969274082332831,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "memory",
+    "scenario": "filter_val2_gt_500",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0006720000019413419,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": 346.28125
+  },
+  {
+    "category": "memory",
+    "scenario": "filter_val2_gt_500",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0006380829945555888,
+    "speedup_vs_native": 1.05315453894736,
+    "peak_rss_mb": 346.28125
+  },
+  {
+    "category": "memory",
+    "scenario": "groupby_key_sum",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0012652910008910112,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": 346.296875
+  },
+  {
+    "category": "memory",
+    "scenario": "groupby_key_sum",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0008705829968675971,
+    "speedup_vs_native": 1.4533835434916533,
+    "peak_rss_mb": 346.296875
+  },
+  {
+    "category": "memory",
+    "scenario": "ndarray_np_sin_dispatch",
+    "engine": "native",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0012574590000440367,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": 346.640625
+  },
+  {
+    "category": "memory",
+    "scenario": "ndarray_np_sin_dispatch",
+    "engine": "framex",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.0016817499999888241,
+    "speedup_vs_native": 0.7477086368677823,
+    "peak_rss_mb": 346.640625
+  },
+  {
+    "category": "c_backend",
+    "scenario": "reduction_sum_f64",
+    "engine": "python_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 4.0447875974791714e-05,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "reduction_sum_f64",
+    "engine": "c_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.00015189046092700664,
+    "speedup_vs_native": 0.2662963541484648,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "reduction_mean_f64",
+    "engine": "python_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 4.016389941341458e-05,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "reduction_mean_f64",
+    "engine": "c_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.00015737125389136963,
+    "speedup_vs_native": 0.2552175090448155,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "reduction_min_max_f64",
+    "engine": "python_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.00027232161716028713,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "reduction_min_max_f64",
+    "engine": "c_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.00029123307029976786,
+    "speedup_vs_native": 0.935064197482741,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "elementwise_add_f64",
+    "engine": "python_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 4.104252148096066e-05,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "elementwise_add_f64",
+    "engine": "c_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 0.000129597820290428,
+    "speedup_vs_native": 0.3166914488915369,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "elementwise_scalar_mul_f64",
+    "engine": "python_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 3.815124511419299e-05,
+    "speedup_vs_native": 1.0,
+    "peak_rss_mb": null
+  },
+  {
+    "category": "c_backend",
+    "scenario": "elementwise_scalar_mul_f64",
+    "engine": "c_backend",
+    "size": 300000,
+    "workers": 1,
+    "seconds": 7.623095703479521e-05,
+    "speedup_vs_native": 0.5004691872985283,
+    "peak_rss_mb": null
+  }
+]

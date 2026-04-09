@@ -1,0 +1,125 @@
+name: Release Build Pipeline
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      tag: ${{ steps.read.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read and validate versions
+        id: read
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+          import tomllib
+
+          pyproject = pathlib.Path("pyproject.toml")
+          version_py = pathlib.Path("framex/_version.py")
+          data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+          project_version = data["project"]["version"]
+
+          m = re.search(
+              r'__version__\s*=\s*["\']([^"\']+)["\']',
+              version_py.read_text(encoding="utf-8"),
+          )
+          if not m:
+            raise SystemExit("Could not read __version__ from framex/_version.py")
+          code_version = m.group(1)
+
+          if project_version != code_version:
+            raise SystemExit(
+                f"Version mismatch: pyproject.toml={project_version}, framex/_version.py={code_version}"
+            )
+
+          event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+          ref_name = os.environ.get("GITHUB_REF_NAME", "")
+          release_tag = os.environ.get("RELEASE_TAG_NAME", "")
+
+          tag = ""
+          if event_name == "push" and ref_name:
+            tag = ref_name
+          elif event_name == "release" and release_tag:
+            tag = release_tag
+
+          if tag:
+            normalized = tag[1:] if tag.startswith("v") else tag
+            if normalized != project_version:
+              raise SystemExit(
+                  f"Tag/version mismatch: tag={tag}, expected v{project_version}"
+              )
+
+          github_output = os.environ["GITHUB_OUTPUT"]
+          with open(github_output, "a", encoding="utf-8") as fh:
+            fh.write(f"version={project_version}\n")
+            fh.write(f"tag={tag}\n")
+          print(f"Validated version: {project_version} (tag: {tag or 'n/a'})")
+          PY
+        env:
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+
+  test:
+    needs: validate-version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Run tests
+        run: python -m pytest -q
+
+  build:
+    needs: [validate-version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Validate package metadata
+        run: python -m twine check dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: framex-dist-${{ needs.validate-version.outputs.version }}
+          path: dist/

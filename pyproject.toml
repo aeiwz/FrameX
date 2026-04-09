@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "framex"
+version = "0.1.0"
+description = "High-performance parallel dataframe and array processing with Arrow-backed storage"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "FrameX Contributors" }
+]
+keywords = ["dataframe", "array", "analytics", "arrow", "pandas", "numpy", "parallel"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+  "pyarrow>=14.0",
+  "numpy>=1.24",
+  "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-benchmark",
+  "hypothesis",
+]
+bench = [
+  "matplotlib>=3.8",
+  "psutil>=5.9",
+]
+release = [
+  "build>=1.2.2",
+  "twine>=5.1.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/aeiwz/FrameX"
+Repository = "https://github.com/aeiwz/FrameX"
+Issues = "https://github.com/aeiwz/FrameX/issues"
+Documentation = "https://github.com/aeiwz/FrameX/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["framex", "framex.*"]
+exclude = ["tests", "tests.*", "benchmarks", "benchmarks.*"]
+
+[tool.setuptools.package-data]
+framex = [
+  "backends/c_kernels.c",
+]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
