@@ -12,7 +12,7 @@ This guide takes you from install to a complete mini pipeline: load data, transf
 ## 1. Install
 
 ```bash
-pip install framex
+pip install pyframe-xpy
 ```
 
 ## 2. Import and Create a DataFrame

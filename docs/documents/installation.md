@@ -15,7 +15,7 @@ section: Introduction
 ## Install from PyPI
 
 ```bash
-pip install framex
+pip install pyframe-xpy
 ```
 
 ## Development Install
@@ -40,11 +40,11 @@ print(fx.get_config())
 Install extras based on your workload:
 
 ```bash
-pip install framex[bench]      # benchmark suite deps
-pip install framex[accel]      # numexpr + numba
-pip install framex[gpu]        # cupy (CUDA)
-pip install framex[ml_accel]   # jax + pytorch
-pip install framex[pandas_fast]  # modin backend
+pip install pyframe-xpy[bench]      # benchmark suite deps
+pip install pyframe-xpy[accel]      # numexpr + numba
+pip install pyframe-xpy[gpu]        # cupy (CUDA)
+pip install pyframe-xpy[ml_accel]   # jax + pytorch
+pip install pyframe-xpy[pandas_fast]  # modin backend
 pip install "dask[distributed]" "ray[data]"  # cluster/HPC backends
 pip install zstandard  # .zst/.zstd compression
 ```

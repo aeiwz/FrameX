@@ -8,7 +8,7 @@ Workflow file:
 
 ## 1) One-time PyPI/TestPyPI setup
 
-1. Create projects on TestPyPI and PyPI (or reserve the name `framex`).
+1. Create projects on TestPyPI and PyPI (or reserve the name `pyframe-xpy`).
 2. In each index, configure a Trusted Publisher:
    - Owner: your GitHub org/user
    - Repository: `kawa-technology/FrameX`
@@ -35,7 +35,7 @@ Run workflow manually:
 Install test package:
 
 ```bash
-python3 -m pip install --index-url https://test.pypi.org/simple/ framex
+python3 -m pip install --index-url https://test.pypi.org/simple/ pyframe-xpy
 ```
 
 ## 4) Publish to PyPI
