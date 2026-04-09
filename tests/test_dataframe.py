@@ -8,6 +8,18 @@ import framex as fx
 from framex.core.dataframe import DataFrame
 
 
+def _scale_partition_value(batch: pa.RecordBatch) -> pa.RecordBatch:
+    value_col = batch.column(batch.schema.get_field_index("value"))
+    scaled = pa.array([v.as_py() * 10 for v in value_col])
+    return pa.record_batch([scaled], names=["value"])
+
+
+def _shift_partition_value(batch: pa.RecordBatch) -> pa.RecordBatch:
+    value_col = batch.column(batch.schema.get_field_index("value"))
+    shifted = pa.array([v.as_py() + 1 for v in value_col])
+    return pa.record_batch([shifted], names=["value"])
+
+
 class TestConstruction:
     def test_from_dict(self):
         df = DataFrame({"a": [1, 2, 3], "b": [10, 20, 30]})
@@ -130,6 +142,19 @@ class TestConversions:
         pdf2 = df.to_pandas()
         pd.testing.assert_frame_equal(pdf, pdf2)
 
+    def test_to_dask(self):
+        dd = pytest.importorskip("dask.dataframe")
+        df = DataFrame({"a": [1, 2, 3]})
+        ddf = df.to_dask(npartitions=2)
+        assert isinstance(ddf, dd.DataFrame)
+        assert ddf.compute()["a"].tolist() == [1, 2, 3]
+
+    def test_to_ray(self):
+        rd = pytest.importorskip("ray.data")
+        df = DataFrame({"a": [1, 2, 3]})
+        ds = df.to_ray()
+        assert ds.count() == 3
+
 
 class TestSort:
     def test_sort_ascending(self):
@@ -220,3 +245,61 @@ class TestLazy:
         df = DataFrame({"a": [3, 1, 2]})
         result = df.lazy().sort("a").collect()
         assert result["a"].to_pylist() == [1, 2, 3]
+
+    def test_lazy_map_partitions(self):
+        df = DataFrame({"value": [1, 2, 3, 4, 5, 6]})
+        result = (
+            df.lazy()
+            .map_partitions(_shift_partition_value, workers=2, backend="threads")
+            .collect()
+        )
+        assert result["value"].to_pylist() == [2, 3, 4, 5, 6, 7]
+
+
+class TestParallelPartitions:
+    def test_map_partitions_threads(self):
+        df = DataFrame({"value": list(range(1, 33))})
+        result = df.map_partitions(_scale_partition_value, workers=4, backend="threads")
+        assert result["value"].to_pylist() == [v * 10 for v in range(1, 33)]
+
+    def test_map_partitions_processes(self):
+        df = DataFrame({"value": list(range(1, 17))})
+        result = df.map_partitions(_scale_partition_value, workers=2, backend="processes")
+        assert result["value"].to_pylist() == [v * 10 for v in range(1, 17)]
+
+    def test_map_partitions_ray(self):
+        pytest.importorskip("ray")
+        df = DataFrame({"value": list(range(1, 17))})
+        result = df.map_partitions(_scale_partition_value, workers=2, backend="ray")
+        assert result["value"].to_pylist() == [v * 10 for v in range(1, 17)]
+
+    def test_map_partitions_dask(self):
+        pytest.importorskip("dask.distributed")
+        df = DataFrame({"value": list(range(1, 17))})
+        result = df.map_partitions(_scale_partition_value, workers=2, backend="dask")
+        assert result["value"].to_pylist() == [v * 10 for v in range(1, 17)]
+
+
+class TestPandasCompatFallback:
+    def test_dataframe_reset_index_via_fallback(self):
+        df = DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        out = df.reset_index(drop=True)
+        assert isinstance(out, DataFrame)
+        assert out.num_rows == 3
+        assert out.columns == ["a", "b"]
+
+
+class TestNotebookRendering:
+    def test_repr_html(self):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        html = df._repr_html_()
+        assert isinstance(html, str)
+        assert "<table" in html.lower()
+        assert "a" in html
+
+    def test_repr_mimebundle(self):
+        df = DataFrame({"a": [1, 2], "b": ["x", "y"]})
+        bundle = df._repr_mimebundle_()
+        assert "text/plain" in bundle
+        assert "text/html" in bundle
+        assert "<table" in bundle["text/html"].lower()

@@ -38,6 +38,7 @@ export default function RootLayout({ children }) {
             <Link href="/" className="logo">FrameX</Link>
             <div className="links" role="list">
               <Link href="/docs">Docs</Link>
+              <Link href="/benchmarks">Benchmarks</Link>
               <Link href="/docs/tutorial_etl_pipeline">Tutorials</Link>
               <Link href="/docs/use_cases">Use Cases</Link>
               <a href="https://github.com/aeiwz/FrameX" target="_blank" rel="noopener noreferrer" aria-label="FrameX on GitHub (opens in new tab)">GitHub</a>

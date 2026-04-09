@@ -1,0 +1,44 @@
+[
+  {
+    "workload": "Single-machine ETL (~100MB\u201330GB)",
+    "status": "pass",
+    "detail": "ETL parquet round-trip + filter/groupby/sort succeeded",
+    "seconds": 0.24800716699974146
+  },
+  {
+    "workload": "Analytics with joins",
+    "status": "pass",
+    "detail": "Join produced 60000 rows as expected",
+    "seconds": 0.002157708993763663
+  },
+  {
+    "workload": "ML preprocessing (mixed numeric + categorical)",
+    "status": "pass",
+    "detail": "Mixed numeric/categorical preprocessing flow succeeded",
+    "seconds": 0.008212959000957198
+  },
+  {
+    "workload": "Large NumPy operations",
+    "status": "pass",
+    "detail": "NEP13/18 dispatch and chained ndarray ops succeeded",
+    "seconds": 0.008546500001102686
+  },
+  {
+    "workload": "Distributed clusters (multi-node)",
+    "status": "partial",
+    "detail": "Neither Ray nor Dask distributed backend is installed",
+    "seconds": 0.0001488330017309636
+  },
+  {
+    "workload": "GPU acceleration",
+    "status": "partial",
+    "detail": "CuPy not installed; GPU path unavailable in this environment",
+    "seconds": 8.283299393951893e-05
+  },
+  {
+    "workload": "Production streaming",
+    "status": "pass",
+    "detail": "Micro-batch StreamProcessor API succeeded with transform pipeline",
+    "seconds": 0.0003507920046104118
+  }
+]

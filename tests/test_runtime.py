@@ -6,6 +6,11 @@ import pytest
 from framex.runtime.partition import Partition, partition_table
 from framex.runtime.task import Task, TaskGraph
 from framex.runtime.scheduler import LocalScheduler
+from framex.runtime.streaming import StreamProcessor
+
+
+def _const_val(v: int) -> int:
+    return v
 
 
 class TestPartition:
@@ -141,3 +146,65 @@ class TestLocalScheduler:
         results = scheduler.execute(graph)
         total = sum(results.values())
         assert total == 21  # 1+2+3+4+5+6
+
+
+class TestStreaming:
+    def test_stream_processor_runs_batches(self):
+        source = [
+            {"value": [1, 2, 3], "keep": [True, False, True]},
+            {"value": [4, 5], "keep": [True, True]},
+        ]
+
+        def transform(df):
+            return df.filter(df["keep"]).drop(["keep"])
+
+        collected = []
+        processor = StreamProcessor(transform, sink=lambda out: collected.append(out.num_rows))
+        stats = processor.run(source)
+
+        assert stats.batches_in == 2
+        assert stats.batches_out == 2
+        assert stats.rows_in == 5
+        assert stats.rows_out == 4
+        assert collected == [2, 2]
+
+
+class TestRayScheduler:
+    def test_execute_simple_ray_backend(self):
+        pytest.importorskip("ray")
+        graph = TaskGraph()
+        id1 = graph.add_task(Task(fn=_const_val, args=(10,)))
+        id2 = graph.add_task(Task(fn=_const_val, args=(20,)))
+
+        scheduler = LocalScheduler(max_workers=2, backend="ray")
+        results = scheduler.execute(graph)
+        assert results[id1] == 10
+        assert results[id2] == 20
+
+
+class TestDaskScheduler:
+    def test_execute_simple_dask_backend(self):
+        pytest.importorskip("dask.distributed")
+        graph = TaskGraph()
+        id1 = graph.add_task(Task(fn=_const_val, args=(10,)))
+        id2 = graph.add_task(Task(fn=_const_val, args=(20,)))
+
+        scheduler = LocalScheduler(max_workers=2, backend="dask")
+        results = scheduler.execute(graph)
+        assert results[id1] == 10
+        assert results[id2] == 20
+
+
+class TestHpcScheduler:
+    def test_execute_simple_hpc_backend_with_dask_engine(self, monkeypatch):
+        pytest.importorskip("dask.distributed")
+        monkeypatch.setenv("FRAMEX_HPC_ENGINE", "dask")
+
+        graph = TaskGraph()
+        id1 = graph.add_task(Task(fn=_const_val, args=(10,)))
+        id2 = graph.add_task(Task(fn=_const_val, args=(20,)))
+
+        scheduler = LocalScheduler(max_workers=2, backend="hpc")
+        results = scheduler.execute(graph)
+        assert results[id1] == 10
+        assert results[id2] == 20

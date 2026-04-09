@@ -8,6 +8,7 @@ It combines:
 - NumPy-compatible chunked arrays (`NDArray` with NumPy protocol support)
 - Arrow-native storage/interop (`to_arrow`, Parquet/IPC I/O)
 - Eager execution with optional lazy pipelines (`.lazy().collect()`)
+- Runtime backends for local threads/processes plus optional Ray/Dask executors
 
 ## Why FrameX
 
@@ -38,7 +39,8 @@ pip install -e .
 Requirements:
 
 - Python `>=3.10`
-- Core dependencies: `pyarrow`, `numpy`, `pandas`
+- Core dependencies: `pyarrow`, `numpy`
+- Optional compatibility: `pandas` (`pip install framex[pandas_compat]`)
 
 ## Quick Start
 
@@ -75,20 +77,65 @@ Main objects and helpers:
 
 - `fx.DataFrame`, `fx.Series`, `fx.Index`, `fx.LazyFrame`
 - `fx.NDArray`, `fx.array(...)`
-- `fx.read_parquet`, `fx.write_parquet`, `fx.read_ipc`, `fx.write_ipc`, `fx.read_csv`
-- `fx.from_pandas`, `fx.from_dataframe`
+- `fx.read_parquet`, `fx.write_parquet`, `fx.read_ipc`, `fx.write_ipc`, `fx.read_csv`, `fx.write_csv`
+- `fx.read_json`, `fx.write_json`, `fx.read_ndjson`, `fx.write_ndjson`
+- `fx.read_file`, `fx.write_file` for format auto-detection
+
+Compression:
+- transparent extension-based compression for `read_file` / `write_file`
+- supported wrappers: `.gz`, `.bz2`, `.xz`, `.zip`, and `.zst`/`.zstd` (when `zstandard` is installed)
+- `fx.from_pandas`, `fx.from_dask`, `fx.from_ray`, `fx.from_dataframe`
 - `fx.get_config`, `fx.set_backend`, `fx.set_workers`, `fx.set_serializer`, `fx.set_kernel_backend`
+- `fx.set_array_backend` for auto/NumExpr/Numba/JAX/PyTorch/CuPy acceleration modes
+- `fx.recommend_best_performance_config()` to inspect hardware-tuned settings
+- `fx.auto_configure_hardware()` to apply best-performance config automatically
+- `fx.StreamProcessor` for micro-batch streaming pipelines
+
+Acceleration extras:
+
+```bash
+pip install framex[accel]      # numexpr + numba
+pip install framex[gpu]        # cupy (CUDA)
+pip install framex[ml_accel]   # jax + pytorch
+pip install framex[pandas_fast]  # modin backend
+pip install dask[distributed] ray[data]  # distributed/HPC backends
+pip install zstandard  # .zst/.zstd file compression
+```
+
+Backend notes:
+
+- `fx.set_backend("threads" | "processes" | "ray" | "dask" | "hpc")`
+- Ray and Dask execution backends require their respective runtimes to be installed/available.
+- HPC mode (`"hpc"`) uses cluster-oriented execution via Dask or Ray:
+  - `FRAMEX_HPC_ENGINE=dask|ray`
+  - `FRAMEX_DASK_SCHEDULER_ADDRESS=<tcp://...>` to connect existing Dask clusters
+  - `FRAMEX_RAY_ADDRESS=<ray://...>` to connect existing Ray clusters
+  - optional SLURM bootstrap: `FRAMEX_DASK_SLURM=1` (requires `dask-jobqueue`)
+
+Test support notes:
+
+- Some tests are optional-backend gated and intentionally `skipped` when deps are not installed.
+- Typical skip reasons: missing `dask.distributed`, `dask.dataframe`, `ray`, or `ray.data`.
+- Run full optional matrix locally:
+
+```bash
+pip install "dask[distributed]" "ray[data]"
+pytest -q
+```
 
 ## Documentation
 
 Canonical docs are in [`docs/documents`](docs/documents):
 
 - [Overview](docs/documents/overview.md)
+- [Features](docs/documents/features.md)
 - [Getting Started](docs/documents/getting_started.md)
 - [Installation](docs/documents/installation.md)
 - [Tutorial: ETL Pipeline](docs/documents/tutorial_etl_pipeline.md)
 - [Tutorial: NumPy NDArray Interop](docs/documents/tutorial_numpy_array.md)
 - [Use Cases](docs/documents/use_cases.md)
+- [Configuration Guide](docs/documents/configuration_guide.md)
+- [Performance Test](docs/documents/performance_test.md)
 - [Architecture](docs/documents/architecture.md)
 - [API Reference](docs/documents/api_reference.md)
 - [Roadmap](docs/documents/roadmap.md)
@@ -97,6 +144,14 @@ Canonical docs are in [`docs/documents`](docs/documents):
 ## Website (Docs UI)
 
 The docs website lives in [`website`](website) (Next.js App Router).
+
+Main docs routes:
+
+- `http://localhost:3000/docs/features`
+- `http://localhost:3000/docs/tutorial_etl_pipeline`
+- `http://localhost:3000/docs/use_cases`
+- `http://localhost:3000/docs/configuration_guide`
+- `http://localhost:3000/docs/performance_test`
 
 Run locally:
 
@@ -130,6 +185,29 @@ pytest
 ## Benchmarks
 
 Benchmark code and generated reports are in [`benchmarks`](benchmarks).
+
+Run the full benchmark suite (includes in-terminal progress bar and report generation):
+
+```bash
+python3 -m benchmarks.benchmark_suite
+```
+
+Run workload capability matrix checks:
+
+```bash
+python3 -m benchmarks.check_framex_workloads
+```
+
+Benchmark outputs are written to `benchmarks/results`:
+
+- `benchmark_results.json`
+- `benchmark_results.csv`
+- `benchmark_report.md`
+- `framex_workload_check.json`
+- `performance_speedup.png`
+- `parallel_processing_scaling.png`
+- `multiprocessing_scaling.png`
+- `memory_peak_rss.png`
 
 ## Project Status
 

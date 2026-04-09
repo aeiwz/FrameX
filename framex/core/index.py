@@ -7,6 +7,8 @@ from typing import Any, Sequence
 import numpy as np
 import pyarrow as pa
 
+from framex.pandas_engine import get_pandas_module
+
 
 class Index:
     """Immutable, Arrow-backed row index.
@@ -47,8 +49,7 @@ class Index:
         return self._data
 
     def to_pandas(self) -> Any:
-        import pandas as pd
-
+        pd = get_pandas_module()
         return pd.Index(self._data.to_pylist(), name=self.name)
 
     def to_numpy(self) -> np.ndarray[Any, Any]:

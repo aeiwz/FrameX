@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+import numbers
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from framex.backends.array_accel import evaluate_ufunc, maybe_numba_jit
+from framex.config import get_config
 from framex.core.dtypes import DType, resolve_dtype
+from framex.runtime.executor import WorkerExecutor
 
 
 # Sentinel for __array_ufunc__ / __array_function__ to signal NotImplemented
@@ -26,6 +30,14 @@ def _implements(numpy_function: Any) -> Any:
 
 
 _HANDLED_FUNCTIONS: dict[Any, Any] = {}
+
+
+def _apply_block_fn(
+    fn: Callable[[np.ndarray[Any, Any]], Any],
+    block: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    result = fn(block)
+    return np.asarray(result)
 
 
 class NDArray:
@@ -118,6 +130,75 @@ class NDArray:
             result = result.astype(dtype)
         return result
 
+    def apply_blocks(
+        self,
+        fn: Callable[[np.ndarray[Any, Any]], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> NDArray:
+        """Apply a function to each physical chunk, optionally in parallel.
+
+        ``fn`` receives a NumPy view/copy for each chunk and must return a
+        1-D array-like with the same length as that input chunk.
+        """
+        if not self._chunks:
+            return NDArray([], dtype=self.dtype.arrow_type)
+
+        cfg = get_config()
+        max_workers = workers or cfg.workers
+        if max_workers < 1:
+            raise ValueError("workers must be >= 1")
+
+        if backend == "auto":
+            if pa.types.is_integer(self.dtype.arrow_type) or pa.types.is_floating(self.dtype.arrow_type):
+                resolved_backend = "threads"
+            else:
+                resolved_backend = "processes"
+        else:
+            resolved_backend = backend
+
+        np_blocks = [chunk.to_numpy(zero_copy_only=False) for chunk in self._chunks]
+
+        if max_workers == 1 or len(np_blocks) == 1:
+            out_blocks = [_apply_block_fn(fn, block) for block in np_blocks]
+        else:
+            with WorkerExecutor(max_workers=max_workers, backend=resolved_backend) as executor:
+                futures = [executor.submit(_apply_block_fn, fn, block) for block in np_blocks]
+                out_blocks = [f.result() for f in futures]
+
+        out_chunks: list[pa.Array] = []
+        for i, (inp, out) in enumerate(zip(np_blocks, out_blocks)):
+            if out.ndim != 1:
+                raise ValueError(f"Block function must return a 1-D array, got ndim={out.ndim} for block {i}")
+            if len(out) != len(inp):
+                raise ValueError(
+                    f"Block function must preserve block length: expected {len(inp)}, got {len(out)} for block {i}"
+                )
+            out_chunks.append(pa.array(out))
+
+        return NDArray(out_chunks)
+
+    def parallel_map(
+        self,
+        fn: Callable[[np.ndarray[Any, Any]], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> NDArray:
+        """Alias for :meth:`apply_blocks`."""
+        return self.apply_blocks(fn, workers=workers, backend=backend)
+
+    def jit_apply(
+        self,
+        fn: Callable[[np.ndarray[Any, Any]], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "threads",
+    ) -> NDArray:
+        """Apply a Numba-jitted function across blocks when Numba is available."""
+        return self.apply_blocks(maybe_numba_jit(fn), workers=workers, backend=backend)
+
     # -- Reductions ----------------------------------------------------------
 
     def sum(self) -> Any:
@@ -181,6 +262,20 @@ class NDArray:
         if method != "__call__":
             return NotImplemented
 
+        binary_arrow_ops = {
+            np.add: pc.add,
+            np.subtract: pc.subtract,
+            np.multiply: pc.multiply,
+            np.divide: pc.divide,
+        }
+        arrow_binary = binary_arrow_ops.get(ufunc)
+        if callable(arrow_binary) and len(inputs) == 2 and not kwargs:
+            left, right = inputs
+            if isinstance(left, NDArray) and isinstance(right, (NDArray, numbers.Real)):
+                return left._binary_op(arrow_binary, right)
+            if isinstance(right, NDArray) and isinstance(left, numbers.Real):
+                return right._binary_op(arrow_binary, left, reverse=True)
+
         if len(inputs) == 1 and isinstance(inputs[0], NDArray):
             unary_arrow_ops = {
                 np.sin: getattr(pc, "sin", None),
@@ -210,7 +305,7 @@ class NDArray:
             else:
                 np_inputs.append(np.asarray(inp))
 
-        result = ufunc(*np_inputs, **kwargs)
+        result = evaluate_ufunc(ufunc, np_inputs, kwargs)
         if isinstance(result, np.ndarray):
             return NDArray(result, dtype=str(result.dtype))
         return result
@@ -246,6 +341,28 @@ class NDArray:
         else:
             body = "[]"
         return f"NDArray(len={n}, chunks={self.num_chunks}, dtype={self.dtype}, data={body})"
+
+    def __getattr__(self, name: str) -> Any:
+        """Fallback to NumPy ndarray methods for missing NDArray APIs."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        arr = self.to_numpy()
+        attr = getattr(arr, name, None)
+        if attr is None:
+            raise AttributeError(f"'NDArray' object has no attribute {name!r}")
+
+        if callable(attr):
+            def _call(*args: Any, **kwargs: Any) -> Any:
+                out = attr(*args, **kwargs)
+                if isinstance(out, np.ndarray):
+                    if out.ndim == 1:
+                        return NDArray(out, dtype=str(out.dtype))
+                    return out
+                return out
+
+            return _call
+        return attr
 
 
 # ---------------------------------------------------------------------------

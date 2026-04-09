@@ -11,6 +11,7 @@ Unified benchmark runner for FrameX vs native libraries (Pandas/NumPy + Python s
 5. Memory benchmark
 6. Report benchmark + visualization
 7. C backend benchmark (`kernel_backend=python` vs `kernel_backend=c`, when available)
+8. Workload capability matrix check (`benchmarks.check_framex_workloads`)
 
 ## Install benchmark dependencies
 
@@ -28,6 +29,12 @@ Disable C backend benchmarks:
 
 ```bash
 python3 -m benchmarks.benchmark_suite --no-c-backend
+```
+
+Run workload capability matrix check:
+
+```bash
+python3 -m benchmarks.check_framex_workloads
 ```
 
 Example with custom sizes:
@@ -49,6 +56,7 @@ Default output directory: `benchmarks/results`
 - `benchmark_results.json`
 - `benchmark_results.csv`
 - `benchmark_report.md`
+- `framex_workload_check.json`
 - `performance_speedup.png` (if matplotlib installed)
 - `parallel_processing_scaling.png` (if matplotlib installed)
 - `multiprocessing_scaling.png` (if matplotlib installed)

@@ -7,6 +7,7 @@ arrays, and unavailable C library fall back to pyarrow.compute.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import pyarrow as pa
@@ -15,6 +16,7 @@ import pyarrow.compute as pc
 from framex.config import get_config
 
 _C_FUNC_CACHE: dict[str, Any] | None = None
+_C_MIN_ELEMENTS = int(os.getenv("FRAMEX_C_MIN_ELEMENTS", "1000000"))
 
 
 def _c_funcs() -> dict[str, Any]:
@@ -45,6 +47,15 @@ def _use_c() -> bool:
     return get_config().kernel_backend == "c"
 
 
+def _num_elements(col: pa.ChunkedArray) -> int:
+    return len(col)
+
+
+def _should_use_c_for_column(col: pa.ChunkedArray) -> bool:
+    # Avoid ctypes/kernel-call overhead on small arrays where Arrow C++ is faster.
+    return _use_c() and not _has_nulls(col) and _num_elements(col) >= _C_MIN_ELEMENTS
+
+
 def _is_float(col: pa.ChunkedArray) -> bool:
     return pa.types.is_floating(col.type)
 
@@ -58,7 +69,7 @@ def _has_nulls(col: pa.ChunkedArray) -> bool:
 
 
 def sum_column(column: pa.ChunkedArray) -> Any:
-    if _use_c() and not _has_nulls(column):
+    if _should_use_c_for_column(column):
         c = _c_funcs()
         try:
             if c.get("available", False):
@@ -76,7 +87,7 @@ def sum_column(column: pa.ChunkedArray) -> Any:
 
 
 def mean_column(column: pa.ChunkedArray) -> Any:
-    if _use_c() and not _has_nulls(column):
+    if _should_use_c_for_column(column):
         c = _c_funcs()
         try:
             if c.get("available", False):
@@ -99,7 +110,7 @@ def count_column(column: pa.ChunkedArray) -> int:
 
 
 def min_column(column: pa.ChunkedArray) -> Any:
-    if _use_c() and not _has_nulls(column):
+    if _should_use_c_for_column(column):
         c = _c_funcs()
         try:
             if c.get("available", False):
@@ -117,7 +128,7 @@ def min_column(column: pa.ChunkedArray) -> Any:
 
 
 def max_column(column: pa.ChunkedArray) -> Any:
-    if _use_c() and not _has_nulls(column):
+    if _should_use_c_for_column(column):
         c = _c_funcs()
         try:
             if c.get("available", False):
@@ -135,7 +146,7 @@ def max_column(column: pa.ChunkedArray) -> Any:
 
 
 def std_column(column: pa.ChunkedArray, ddof: int = 1) -> Any:
-    if _use_c() and not _has_nulls(column) and _is_float(column):
+    if _should_use_c_for_column(column) and _is_float(column):
         c = _c_funcs()
         try:
             fn = c.get("std_f64_chunked")
@@ -147,7 +158,7 @@ def std_column(column: pa.ChunkedArray, ddof: int = 1) -> Any:
 
 
 def var_column(column: pa.ChunkedArray, ddof: int = 1) -> Any:
-    if _use_c() and not _has_nulls(column) and _is_float(column):
+    if _should_use_c_for_column(column) and _is_float(column):
         c = _c_funcs()
         try:
             fn = c.get("var_f64_chunked")

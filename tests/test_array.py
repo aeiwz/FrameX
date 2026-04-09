@@ -7,6 +7,10 @@ import framex as fx
 from framex.core.array import NDArray
 
 
+def _double_block(block: np.ndarray) -> np.ndarray:
+    return block * 2
+
+
 class TestConstruction:
     def test_from_list(self):
         x = NDArray([1.0, 2.0, 3.0], dtype="float64")
@@ -135,6 +139,12 @@ class TestIndexing:
         assert isinstance(result, NDArray)
         np.testing.assert_array_equal(result.to_numpy(), [20, 30, 40])
 
+    def test_numpy_method_fallback(self):
+        x = NDArray([1.0, 2.0, 3.0, 4.0], dtype="float64")
+        out = x.reshape(2, 2)
+        assert isinstance(out, np.ndarray)
+        np.testing.assert_array_equal(out, np.array([[1.0, 2.0], [3.0, 4.0]]))
+
 
 class TestConvenienceConstructor:
     def test_fx_array(self):
@@ -142,3 +152,50 @@ class TestConvenienceConstructor:
         assert isinstance(x, NDArray)
         assert len(x) == 3
         assert x.num_chunks == 2
+
+
+class TestParallelBlocks:
+    def test_apply_blocks_threads(self):
+        x = NDArray(np.arange(32, dtype=np.float64), chunks=8)
+        result = x.apply_blocks(_double_block, workers=4, backend="threads")
+        np.testing.assert_array_equal(result.to_numpy(), np.arange(32, dtype=np.float64) * 2)
+
+    def test_apply_blocks_processes(self):
+        x = NDArray(np.arange(24, dtype=np.float64), chunks=6)
+        result = x.apply_blocks(_double_block, workers=2, backend="processes")
+        np.testing.assert_array_equal(result.to_numpy(), np.arange(24, dtype=np.float64) * 2)
+
+    def test_jit_apply(self):
+        x = NDArray(np.arange(16, dtype=np.float64), chunks=4)
+
+        def plus_one(block):
+            return block + 1.0
+
+        result = x.jit_apply(plus_one, workers=2)
+        np.testing.assert_array_equal(result.to_numpy(), np.arange(16, dtype=np.float64) + 1.0)
+
+
+class TestArrayBackends:
+    def test_set_array_backend_invalid(self):
+        with pytest.raises(ValueError, match="array_backend"):
+            fx.set_array_backend("invalid")  # type: ignore[arg-type]
+
+    def test_numexpr_backend(self):
+        x = NDArray([1.0, 2.0, 3.0], dtype="float64")
+        y = NDArray([10.0, 20.0, 30.0], dtype="float64")
+        with fx.config(array_backend="numexpr"):
+            result = np.add(x, y)
+        np.testing.assert_array_equal(result.to_numpy(), [11.0, 22.0, 33.0])
+
+    def test_auto_backend(self):
+        x = NDArray([1.0, 2.0, 3.0], dtype="float64")
+        y = NDArray([10.0, 20.0, 30.0], dtype="float64")
+        with fx.config(array_backend="auto"):
+            result = np.add(x, y)
+        np.testing.assert_array_equal(result.to_numpy(), [11.0, 22.0, 33.0])
+
+    def test_cupy_backend_fallback(self):
+        x = NDArray([1.0, 2.0, 3.0], dtype="float64")
+        with fx.config(array_backend="cupy"):
+            result = np.sin(x)
+        np.testing.assert_allclose(result.to_numpy(), np.sin(np.array([1.0, 2.0, 3.0])))

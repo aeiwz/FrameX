@@ -58,12 +58,37 @@ export default function Home() {
       <section className="quick-links" aria-labelledby="quick-links-title">
         <h2 id="quick-links-title">Start Here</h2>
         <div className="quick-links-grid">
+          <Link href="/docs/features" className="quick-link">Features</Link>
           <Link href="/docs/getting_started" className="quick-link">Getting Started</Link>
           <Link href="/docs/tutorial_etl_pipeline" className="quick-link">Tutorial: ETL Pipeline</Link>
           <Link href="/docs/tutorial_numpy_array" className="quick-link">Tutorial: NumPy NDArray</Link>
           <Link href="/docs/use_cases" className="quick-link">Use Cases</Link>
+          <Link href="/docs/configuration_guide" className="quick-link">Configuration Guide</Link>
+          <Link href="/docs/performance_test" className="quick-link">Performance Test</Link>
+          <Link href="/benchmarks" className="quick-link">Benchmark Report</Link>
           <Link href="/docs/architecture" className="quick-link">Architecture</Link>
           <Link href="/docs/api_reference" className="quick-link">API Reference</Link>
+        </div>
+      </section>
+
+      <section className="learning-path" aria-labelledby="learning-path-title">
+        <h2 id="learning-path-title">Learning Path</h2>
+        <div className="learning-path-grid">
+          <Link href="/docs/features" className="path-step">
+            <span className="path-order">1</span>
+            <strong>Feature</strong>
+            <p>Understand FrameX capabilities and architecture fit.</p>
+          </Link>
+          <Link href="/docs/tutorial_etl_pipeline" className="path-step">
+            <span className="path-order">2</span>
+            <strong>Tutorial</strong>
+            <p>Run practical pipelines and learn API patterns quickly.</p>
+          </Link>
+          <Link href="/docs/use_cases" className="path-step">
+            <span className="path-order">3</span>
+            <strong>Use Case</strong>
+            <p>Map FrameX to ETL, analytics, and ML preprocessing workloads.</p>
+          </Link>
         </div>
       </section>
     </div>

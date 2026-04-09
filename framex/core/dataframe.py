@@ -2,18 +2,145 @@
 
 from __future__ import annotations
 
-import os
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import numpy as np
-import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from framex.config import get_config
 from framex.core.dtypes import DType
 from framex.core.index import Index
 from framex.core.series import Series
+from framex.pandas_engine import get_pandas_module
+from framex.runtime.executor import WorkerExecutor, detect_backend
 from framex.runtime.partition import Partition, partition_table
+
+
+def _is_pandas_dataframe(value: Any) -> bool:
+    cls = value.__class__
+    return cls.__name__ == "DataFrame" and cls.__module__.startswith(
+        ("pandas.", "modin.pandas", "fireducks.pandas")
+    )
+
+
+def _is_dask_dataframe(value: Any) -> bool:
+    cls = value.__class__
+    return cls.__name__ == "DataFrame" and cls.__module__.startswith("dask.dataframe")
+
+
+def _is_ray_dataset(value: Any) -> bool:
+    cls = value.__class__
+    return cls.__name__ == "Dataset" and cls.__module__.startswith("ray.data")
+
+
+def _table_from_dask_dataframe(ddf: Any) -> pa.Table:
+    delayed_parts = ddf.to_delayed()
+    tables: list[pa.Table] = []
+    for part in delayed_parts:
+        pdf = part.compute()
+        tables.append(pa.Table.from_pandas(pdf, preserve_index=False))
+    if not tables:
+        return pa.table({})
+    return pa.concat_tables(tables, promote_options="default")
+
+
+def _table_from_ray_dataset(ds: Any) -> pa.Table:
+    if hasattr(ds, "to_arrow"):
+        return ds.to_arrow()
+    if hasattr(ds, "to_arrow_refs"):
+        import ray
+
+        refs = ds.to_arrow_refs()
+        tables = ray.get(refs)
+        if not tables:
+            return pa.table({})
+        return pa.concat_tables(tables, promote_options="default")
+    if hasattr(ds, "to_pandas"):
+        return pa.Table.from_pandas(ds.to_pandas(), preserve_index=False)
+    raise TypeError("Unsupported ray dataset conversion path; expected to_arrow or to_arrow_refs")
+
+
+def _serialize_batch(batch: pa.RecordBatch) -> bytes:
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, batch.schema) as writer:
+        writer.write_batch(batch)
+    return sink.getvalue().to_pybytes()
+
+
+def _deserialize_batch(payload: bytes) -> pa.RecordBatch:
+    with pa.ipc.open_stream(payload) as reader:
+        return reader.read_next_batch()
+
+
+def _normalize_partition_output(
+    output: Any,
+) -> pa.RecordBatch:
+    if isinstance(output, Partition):
+        return output.record_batch
+    if isinstance(output, pa.RecordBatch):
+        return output
+    if isinstance(output, pa.Table):
+        batches = output.to_batches()
+        if batches:
+            if len(batches) == 1:
+                return batches[0]
+            merged = pa.Table.from_batches(batches, schema=output.schema).combine_chunks()
+            merged_batches = merged.to_batches()
+            if merged_batches:
+                return merged_batches[0]
+        empty_cols = [pa.array([], type=field.type) for field in output.schema]
+        return pa.record_batch(empty_cols, schema=output.schema)
+    if _is_pandas_dataframe(output):
+        return pa.Table.from_pandas(output, preserve_index=False).to_batches()[0]
+    if isinstance(output, dict):
+        table = pa.table(output)
+        batches = table.to_batches()
+        if batches:
+            return batches[0]
+        empty_cols = [pa.array([], type=field.type) for field in table.schema]
+        return pa.record_batch(empty_cols, schema=table.schema)
+    raise TypeError(
+        "map_partitions function must return Partition, RecordBatch, Table, pandas.DataFrame, or dict"
+    )
+
+
+def _apply_partition_local(
+    batch: pa.RecordBatch,
+    fn: Callable[[pa.RecordBatch], Any],
+) -> pa.RecordBatch:
+    return _normalize_partition_output(fn(batch))
+
+
+def _apply_partition_serialized(
+    payload: bytes,
+    fn: Callable[[pa.RecordBatch], Any],
+) -> bytes:
+    batch = _deserialize_batch(payload)
+    mapped = _normalize_partition_output(fn(batch))
+    return _serialize_batch(mapped)
+
+
+def _to_pandas_compatible(value: Any) -> Any:
+    if isinstance(value, DataFrame):
+        return value.to_pandas()
+    if isinstance(value, Series):
+        return value.to_pandas()
+    if isinstance(value, dict):
+        return {k: _to_pandas_compatible(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        mapped = [_to_pandas_compatible(v) for v in value]
+        return tuple(mapped) if isinstance(value, tuple) else mapped
+    return value
+
+
+def _wrap_pandas_result(value: Any) -> Any:
+    pd = get_pandas_module()
+    if _is_pandas_dataframe(value):
+        return DataFrame(value)
+    if isinstance(value, pd.Series):
+        return Series(value.to_numpy(), name=value.name)
+    return value
 
 
 class DataFrame:
@@ -29,27 +156,50 @@ class DataFrame:
         data: (
             dict[str, Any]
             | pa.Table
-            | pd.DataFrame
             | list[Partition]
             | None
         ) = None,
         *,
         schema: pa.Schema | None = None,
     ):
+        self._cached_table: pa.Table | None = None
+        self._row_count: int = 0
+
         if data is None:
             schema = schema or pa.schema([])
             self._partitions: list[Partition] = []
             self._schema: pa.Schema = schema
+            self._cached_table = pa.table(
+                {name: pa.array([], type=self._schema.field(name).type) for name in self._schema.names}
+            )
+            self._row_count = 0
         elif isinstance(data, list) and all(isinstance(p, Partition) for p in data):
             self._partitions = data
             self._schema = data[0].schema if data else (schema or pa.schema([]))
+            self._row_count = sum(p.num_rows for p in data)
         elif isinstance(data, pa.Table):
             self._schema = data.schema
             self._partitions = partition_table(data)
-        elif isinstance(data, pd.DataFrame):
+            self._cached_table = data
+            self._row_count = data.num_rows
+        elif _is_pandas_dataframe(data):
             table = pa.Table.from_pandas(data, preserve_index=False)
             self._schema = table.schema
             self._partitions = partition_table(table)
+            self._cached_table = table
+            self._row_count = table.num_rows
+        elif _is_dask_dataframe(data):
+            table = _table_from_dask_dataframe(data)
+            self._schema = table.schema
+            self._partitions = partition_table(table)
+            self._cached_table = table
+            self._row_count = table.num_rows
+        elif _is_ray_dataset(data):
+            table = _table_from_ray_dataset(data)
+            self._schema = table.schema
+            self._partitions = partition_table(table)
+            self._cached_table = table
+            self._row_count = table.num_rows
         elif isinstance(data, dict):
             arrays: dict[str, pa.Array] = {}
             for k, v in data.items():
@@ -64,6 +214,8 @@ class DataFrame:
             table = pa.table(arrays)
             self._schema = table.schema
             self._partitions = partition_table(table)
+            self._cached_table = table
+            self._row_count = table.num_rows
         else:
             raise TypeError(f"Cannot construct DataFrame from {type(data)}")
 
@@ -83,7 +235,7 @@ class DataFrame:
 
     @property
     def num_rows(self) -> int:
-        return sum(p.num_rows for p in self._partitions)
+        return self._row_count
 
     @property
     def num_columns(self) -> int:
@@ -104,13 +256,32 @@ class DataFrame:
 
     def to_arrow(self) -> pa.Table:
         """Materialise all partitions into a single ``pyarrow.Table``."""
+        if self._cached_table is not None:
+            return self._cached_table
         if not self._partitions:
-            return pa.table({name: pa.array([], type=self._schema.field(name).type) for name in self._schema.names})
+            self._cached_table = pa.table(
+                {name: pa.array([], type=self._schema.field(name).type) for name in self._schema.names}
+            )
+            return self._cached_table
         batches = [p.record_batch for p in self._partitions]
-        return pa.Table.from_batches(batches, schema=self._schema)
+        self._cached_table = pa.Table.from_batches(batches, schema=self._schema)
+        return self._cached_table
 
-    def to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> Any:
         return self.to_arrow().to_pandas()
+
+    def to_dask(self, npartitions: int | None = None) -> Any:
+        """Convert to a Dask DataFrame."""
+        import dask.dataframe as dd
+
+        pdf = self.to_arrow().to_pandas()
+        return dd.from_pandas(pdf, npartitions=npartitions or max(1, self.num_partitions))
+
+    def to_ray(self) -> Any:
+        """Convert to a Ray Dataset."""
+        import ray.data as rd
+
+        return rd.from_arrow(self.to_arrow())
 
     def to_pydict(self) -> dict[str, list[Any]]:
         return self.to_arrow().to_pydict()
@@ -154,6 +325,90 @@ class DataFrame:
         table = self.to_arrow()
         filtered = table.filter(mask.to_pyarrow())
         return DataFrame(filtered)
+
+    def map_partitions(
+        self,
+        fn: Callable[[pa.RecordBatch], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> DataFrame:
+        """Apply ``fn`` to each partition, optionally in parallel.
+
+        Parameters
+        ----------
+        fn : Callable[[pyarrow.RecordBatch], Any]
+            Function invoked once per partition. Return types supported:
+            ``RecordBatch``, ``Table``, ``Partition``, ``pandas.DataFrame``,
+            or ``dict[str, sequence]``.
+        workers : int | None
+            Pool size. Defaults to global config workers.
+        backend : "threads" | "processes" | "ray" | "dask" | "hpc" | "auto"
+            Execution backend; ``"auto"`` follows schema heuristic.
+        """
+        if not self._partitions:
+            return DataFrame([], schema=self._schema)
+
+        cfg = get_config()
+        max_workers = workers or cfg.workers
+        if max_workers < 1:
+            raise ValueError("workers must be >= 1")
+
+        resolved_backend = detect_backend(self._schema) if backend == "auto" else backend
+        if resolved_backend not in ("threads", "processes", "ray", "dask", "hpc"):
+            raise ValueError(
+                f"backend must be 'threads', 'processes', 'ray', 'dask', 'hpc', or 'auto', got {backend!r}"
+            )
+
+        mapped_by_id: dict[int, pa.RecordBatch] = {}
+
+        if max_workers == 1 or len(self._partitions) == 1:
+            for p in self._partitions:
+                mapped_by_id[p.partition_id] = _apply_partition_local(p.record_batch, fn)
+        elif resolved_backend == "threads":
+            with WorkerExecutor(max_workers=max_workers, backend="threads") as executor:
+                futures = {
+                    p.partition_id: executor.submit(_apply_partition_local, p.record_batch, fn)
+                    for p in self._partitions
+                }
+                for pid, fut in futures.items():
+                    mapped_by_id[pid] = fut.result()
+        elif resolved_backend in ("processes", "ray", "dask", "hpc"):
+            payloads = {p.partition_id: _serialize_batch(p.record_batch) for p in self._partitions}
+            with WorkerExecutor(max_workers=max_workers, backend=resolved_backend) as executor:
+                futures = {
+                    pid: executor.submit(_apply_partition_serialized, payload, fn)
+                    for pid, payload in payloads.items()
+                }
+                for pid, fut in futures.items():
+                    mapped_by_id[pid] = _deserialize_batch(fut.result())
+        else:
+            raise ValueError(f"Unsupported backend: {resolved_backend!r}")
+
+        ordered_ids = sorted(mapped_by_id)
+        if not ordered_ids:
+            return DataFrame([], schema=self._schema)
+
+        first_schema = mapped_by_id[ordered_ids[0]].schema
+        for pid in ordered_ids[1:]:
+            if mapped_by_id[pid].schema != first_schema:
+                raise ValueError("map_partitions requires all output partitions to share the same schema")
+
+        partitions = [
+            Partition(record_batch=mapped_by_id[pid], partition_id=pid)
+            for pid in ordered_ids
+        ]
+        return DataFrame(partitions)
+
+    def parallel_apply(
+        self,
+        fn: Callable[[pa.RecordBatch], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> DataFrame:
+        """Alias for :meth:`map_partitions`."""
+        return self.map_partitions(fn, workers=workers, backend=backend)
 
     # -- GroupBy -------------------------------------------------------------
 
@@ -450,8 +705,49 @@ class DataFrame:
         lines = [f"DataFrame(rows={self.num_rows}, cols={self.num_columns}, partitions={self.num_partitions})"]
         lines.append(f"Columns: {self.columns}")
         if self.num_rows > 0:
-            lines.append(self.head(5).to_pandas().to_string(index=False))
+            preview = self.head(5).to_pydict()
+            lines.append(str(preview))
         return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        """Notebook/Jupyter rich HTML representation."""
+        try:
+            pdf = self.to_pandas()
+            html = pdf._repr_html_() if hasattr(pdf, "_repr_html_") else pdf.to_html()
+            if isinstance(html, str):
+                return html
+        except Exception:
+            pass
+        return f"<pre>{repr(self)}</pre>"
+
+    def _repr_mimebundle_(self, include: Any = None, exclude: Any = None) -> dict[str, str]:
+        """Provide both plain text and HTML MIME output for notebook frontends."""
+        return {
+            "text/plain": repr(self),
+            "text/html": self._repr_html_(),
+        }
+
+    def __getattr__(self, name: str) -> Any:
+        """Pandas-compat fallback for unimplemented DataFrame APIs."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        pdf = self.to_pandas()
+        attr = getattr(pdf, name, None)
+        if attr is None:
+            raise AttributeError(f"'DataFrame' object has no attribute {name!r}")
+
+        if callable(attr):
+            def _call(*args: Any, **kwargs: Any) -> Any:
+                out = attr(
+                    *[_to_pandas_compatible(a) for a in args],
+                    **{k: _to_pandas_compatible(v) for k, v in kwargs.items()},
+                )
+                return _wrap_pandas_result(out)
+
+            return _call
+
+        return _wrap_pandas_result(attr)
 
 
 # ---------------------------------------------------------------------------
@@ -557,6 +853,17 @@ class LazyFrame:
         clone._ops = self._ops + [("sort", (by, ascending))]
         return clone
 
+    def map_partitions(
+        self,
+        fn: Callable[[pa.RecordBatch], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> LazyFrame:
+        clone = LazyFrame(self._source)
+        clone._ops = self._ops + [("map_partitions", (fn, workers, backend))]
+        return clone
+
     def join(
         self,
         other: DataFrame | LazyFrame,
@@ -602,6 +909,9 @@ class LazyFrame:
             elif op == "sort":
                 by, ascending = arg
                 df = df.sort(by, ascending)
+            elif op == "map_partitions":
+                fn, workers, backend = arg
+                df = df.map_partitions(fn, workers=workers, backend=backend)
             elif op == "groupby_agg":
                 keys, aggs = arg
                 df = df.groupby(keys).agg(aggs)
