@@ -2,18 +2,79 @@
 
 from __future__ import annotations
 
-import os
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from framex.config import get_config
 from framex.core.dtypes import DType
 from framex.core.index import Index
 from framex.core.series import Series
+from framex.runtime.executor import WorkerExecutor, detect_backend
 from framex.runtime.partition import Partition, partition_table
+
+
+def _serialize_batch(batch: pa.RecordBatch) -> bytes:
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, batch.schema) as writer:
+        writer.write_batch(batch)
+    return sink.getvalue().to_pybytes()
+
+
+def _deserialize_batch(payload: bytes) -> pa.RecordBatch:
+    with pa.ipc.open_stream(payload) as reader:
+        return reader.read_next_batch()
+
+
+def _normalize_partition_output(
+    output: Any,
+) -> pa.RecordBatch:
+    if isinstance(output, Partition):
+        return output.record_batch
+    if isinstance(output, pa.RecordBatch):
+        return output
+    if isinstance(output, pa.Table):
+        batches = output.to_batches()
+        if batches:
+            if len(batches) == 1:
+                return batches[0]
+            merged = pa.Table.from_batches(batches, schema=output.schema).combine_chunks()
+            merged_batches = merged.to_batches()
+            if merged_batches:
+                return merged_batches[0]
+        empty_cols = [pa.array([], type=field.type) for field in output.schema]
+        return pa.record_batch(empty_cols, schema=output.schema)
+    if isinstance(output, pd.DataFrame):
+        return pa.Table.from_pandas(output, preserve_index=False).to_batches()[0]
+    if isinstance(output, dict):
+        table = pa.table(output)
+        batches = table.to_batches()
+        if batches:
+            return batches[0]
+        empty_cols = [pa.array([], type=field.type) for field in table.schema]
+        return pa.record_batch(empty_cols, schema=table.schema)
+    raise TypeError(
+        "map_partitions function must return Partition, RecordBatch, Table, pandas.DataFrame, or dict"
+    )
+
+
+def _apply_partition_local(
+    batch: pa.RecordBatch,
+    fn: Callable[[pa.RecordBatch], Any],
+) -> pa.RecordBatch:
+    return _normalize_partition_output(fn(batch))
+
+
+def _apply_partition_serialized(
+    payload: bytes,
+    fn: Callable[[pa.RecordBatch], Any],
+) -> bytes:
+    batch = _deserialize_batch(payload)
+    mapped = _normalize_partition_output(fn(batch))
+    return _serialize_batch(mapped)
 
 
 class DataFrame:
@@ -154,6 +215,86 @@ class DataFrame:
         table = self.to_arrow()
         filtered = table.filter(mask.to_pyarrow())
         return DataFrame(filtered)
+
+    def map_partitions(
+        self,
+        fn: Callable[[pa.RecordBatch], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> DataFrame:
+        """Apply ``fn`` to each partition, optionally in parallel.
+
+        Parameters
+        ----------
+        fn : Callable[[pyarrow.RecordBatch], Any]
+            Function invoked once per partition. Return types supported:
+            ``RecordBatch``, ``Table``, ``Partition``, ``pandas.DataFrame``,
+            or ``dict[str, sequence]``.
+        workers : int | None
+            Pool size. Defaults to global config workers.
+        backend : "threads" | "processes" | "auto"
+            Execution backend; ``"auto"`` follows schema heuristic.
+        """
+        if not self._partitions:
+            return DataFrame([], schema=self._schema)
+
+        cfg = get_config()
+        max_workers = workers or cfg.workers
+        if max_workers < 1:
+            raise ValueError("workers must be >= 1")
+
+        resolved_backend = detect_backend(self._schema) if backend == "auto" else backend
+        if resolved_backend not in ("threads", "processes"):
+            raise ValueError(f"backend must be 'threads', 'processes', or 'auto', got {backend!r}")
+
+        mapped_by_id: dict[int, pa.RecordBatch] = {}
+
+        if max_workers == 1 or len(self._partitions) == 1:
+            for p in self._partitions:
+                mapped_by_id[p.partition_id] = _apply_partition_local(p.record_batch, fn)
+        elif resolved_backend == "threads":
+            with WorkerExecutor(max_workers=max_workers, backend="threads") as executor:
+                futures = {
+                    p.partition_id: executor.submit(_apply_partition_local, p.record_batch, fn)
+                    for p in self._partitions
+                }
+                for pid, fut in futures.items():
+                    mapped_by_id[pid] = fut.result()
+        else:
+            payloads = {p.partition_id: _serialize_batch(p.record_batch) for p in self._partitions}
+            with WorkerExecutor(max_workers=max_workers, backend="processes") as executor:
+                futures = {
+                    pid: executor.submit(_apply_partition_serialized, payload, fn)
+                    for pid, payload in payloads.items()
+                }
+                for pid, fut in futures.items():
+                    mapped_by_id[pid] = _deserialize_batch(fut.result())
+
+        ordered_ids = sorted(mapped_by_id)
+        if not ordered_ids:
+            return DataFrame([], schema=self._schema)
+
+        first_schema = mapped_by_id[ordered_ids[0]].schema
+        for pid in ordered_ids[1:]:
+            if mapped_by_id[pid].schema != first_schema:
+                raise ValueError("map_partitions requires all output partitions to share the same schema")
+
+        partitions = [
+            Partition(record_batch=mapped_by_id[pid], partition_id=pid)
+            for pid in ordered_ids
+        ]
+        return DataFrame(partitions)
+
+    def parallel_apply(
+        self,
+        fn: Callable[[pa.RecordBatch], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> DataFrame:
+        """Alias for :meth:`map_partitions`."""
+        return self.map_partitions(fn, workers=workers, backend=backend)
 
     # -- GroupBy -------------------------------------------------------------
 
@@ -557,6 +698,17 @@ class LazyFrame:
         clone._ops = self._ops + [("sort", (by, ascending))]
         return clone
 
+    def map_partitions(
+        self,
+        fn: Callable[[pa.RecordBatch], Any],
+        *,
+        workers: int | None = None,
+        backend: str = "auto",
+    ) -> LazyFrame:
+        clone = LazyFrame(self._source)
+        clone._ops = self._ops + [("map_partitions", (fn, workers, backend))]
+        return clone
+
     def join(
         self,
         other: DataFrame | LazyFrame,
@@ -602,6 +754,9 @@ class LazyFrame:
             elif op == "sort":
                 by, ascending = arg
                 df = df.sort(by, ascending)
+            elif op == "map_partitions":
+                fn, workers, backend = arg
+                df = df.map_partitions(fn, workers=workers, backend=backend)
             elif op == "groupby_agg":
                 keys, aggs = arg
                 df = df.groupby(keys).agg(aggs)

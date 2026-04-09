@@ -1,5 +1,7 @@
 """Tests for interchange: __dataframe__ protocol, from_pandas, from_dataframe."""
 
+import warnings
+
 import pandas as pd
 import pyarrow as pa
 import pytest
@@ -35,7 +37,9 @@ class TestFromDataframe:
         """Use the __dataframe__ protocol from a Pandas object."""
         pdf = pd.DataFrame({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
         interchange = pdf.__dataframe__()
-        df = from_dataframe(interchange)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            df = from_dataframe(interchange)
         assert df.num_rows == 3
 
     def test_invalid_input(self):
@@ -61,7 +65,9 @@ class TestDataframeProtocol:
         df = DataFrame({"x": [10, 20, 30]})
         interchange = df.__dataframe__()
         pdf = pd.api.interchange.from_dataframe(interchange)
-        df2 = from_pandas(pdf)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            df2 = from_pandas(pdf)
         assert df2["x"].to_pylist() == [10, 20, 30]
 
 

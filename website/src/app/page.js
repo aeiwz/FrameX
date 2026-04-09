@@ -62,6 +62,7 @@ export default function Home() {
           <Link href="/docs/tutorial_etl_pipeline" className="quick-link">Tutorial: ETL Pipeline</Link>
           <Link href="/docs/tutorial_numpy_array" className="quick-link">Tutorial: NumPy NDArray</Link>
           <Link href="/docs/use_cases" className="quick-link">Use Cases</Link>
+          <Link href="/benchmarks" className="quick-link">Benchmark Report</Link>
           <Link href="/docs/architecture" className="quick-link">Architecture</Link>
           <Link href="/docs/api_reference" className="quick-link">API Reference</Link>
         </div>

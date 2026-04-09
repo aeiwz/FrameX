@@ -7,6 +7,10 @@ import framex as fx
 from framex.core.array import NDArray
 
 
+def _double_block(block: np.ndarray) -> np.ndarray:
+    return block * 2
+
+
 class TestConstruction:
     def test_from_list(self):
         x = NDArray([1.0, 2.0, 3.0], dtype="float64")
@@ -142,3 +146,15 @@ class TestConvenienceConstructor:
         assert isinstance(x, NDArray)
         assert len(x) == 3
         assert x.num_chunks == 2
+
+
+class TestParallelBlocks:
+    def test_apply_blocks_threads(self):
+        x = NDArray(np.arange(32, dtype=np.float64), chunks=8)
+        result = x.apply_blocks(_double_block, workers=4, backend="threads")
+        np.testing.assert_array_equal(result.to_numpy(), np.arange(32, dtype=np.float64) * 2)
+
+    def test_apply_blocks_processes(self):
+        x = NDArray(np.arange(24, dtype=np.float64), chunks=6)
+        result = x.apply_blocks(_double_block, workers=2, backend="processes")
+        np.testing.assert_array_equal(result.to_numpy(), np.arange(24, dtype=np.float64) * 2)

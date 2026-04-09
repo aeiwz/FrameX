@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from concurrent.futures import Future, ThreadPoolExecutor, ProcessPoolExecutor
+from collections import deque
+from concurrent.futures import Future
 from typing import Any
 
 from framex.config import get_config
-from framex.runtime.task import Task, TaskGraph
+from framex.runtime.task import TaskGraph
 from framex.runtime.executor import WorkerExecutor
 
 
@@ -25,6 +26,10 @@ class LocalScheduler:
 
     def execute(self, graph: TaskGraph) -> dict[str, Any]:
         """Execute the full task graph and return ``{task_id: result}``."""
+        tasks = graph.tasks
+        if not tasks:
+            return {}
+
         order = graph.topological_order()
         results: dict[str, Any] = {}
 
@@ -34,33 +39,49 @@ class LocalScheduler:
         )
 
         with executor:
-            # Group tasks by "wave" — tasks whose dependencies are all resolved.
-            remaining = list(order)
-            while remaining:
-                ready: list[str] = []
-                not_ready: list[str] = []
-                for tid in remaining:
-                    task = graph.get_task(tid)
-                    if all(dep in results for dep in task.dependencies):
-                        ready.append(tid)
-                    else:
-                        not_ready.append(tid)
+            # Fast path: common case in benchmarks where tasks are independent.
+            if all(not tasks[tid].dependencies for tid in order):
+                futures = {
+                    tid: executor.submit(tasks[tid].fn, *tasks[tid].args, **tasks[tid].kwargs)
+                    for tid in order
+                }
+                for tid, fut in futures.items():
+                    results[tid] = fut.result()
+                return results
 
-                if not ready:
+            dependents: dict[str, list[str]] = {tid: [] for tid in order}
+            in_degree: dict[str, int] = {}
+            for tid in order:
+                deps = tasks[tid].dependencies
+                in_degree[tid] = len(deps)
+                for dep in deps:
+                    dependents.setdefault(dep, []).append(tid)
+
+            ready = deque([tid for tid in order if in_degree[tid] == 0])
+
+            # Group tasks by "wave" — tasks whose dependencies are all resolved.
+            while ready:
+                wave = list(ready)
+                ready.clear()
+                if not wave:
                     raise RuntimeError("Deadlock: no tasks are ready but graph is not empty")
 
                 # Submit the ready wave.
                 futures: dict[str, Future[Any]] = {}
-                for tid in ready:
-                    task = graph.get_task(tid)
-                    dep_results = {dep: results[dep] for dep in task.dependencies}
+                for tid in wave:
+                    task = tasks[tid]
                     futures[tid] = executor.submit(task.fn, *task.args, **task.kwargs)
 
                 # Collect results.
                 for tid, fut in futures.items():
                     results[tid] = fut.result()
+                    for dependent in dependents.get(tid, []):
+                        in_degree[dependent] -= 1
+                        if in_degree[dependent] == 0:
+                            ready.append(dependent)
 
-                remaining = not_ready
+            if len(results) != len(order):
+                raise RuntimeError("Deadlock: no tasks are ready but graph is not empty")
 
         return results
 

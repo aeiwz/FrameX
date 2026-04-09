@@ -7,6 +7,7 @@ pyarrow.compute.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Callable
 
 import pyarrow as pa
@@ -16,6 +17,7 @@ from framex.config import get_config
 from framex.runtime.partition import Partition
 
 _C_FUNC_CACHE: dict[str, Any] | None = None
+_C_MIN_ELEMENTS = int(os.getenv("FRAMEX_C_MIN_ELEMENTS", "1000000"))
 
 
 def _c_funcs() -> dict[str, Any]:
@@ -70,6 +72,7 @@ def _use_c_for(col: pa.ChunkedArray) -> bool:
         get_config().kernel_backend == "c"
         and pa.types.is_floating(col.type)
         and col.null_count == 0
+        and len(col) >= _C_MIN_ELEMENTS
     )
 
 

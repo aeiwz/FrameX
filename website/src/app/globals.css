@@ -453,6 +453,168 @@ button:focus-visible,
   color: var(--muted);
 }
 
+.benchmark-page {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.benchmark-header {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(37, 99, 235, 0.11) 0%, rgba(37, 99, 235, 0) 58%),
+    var(--surface);
+  padding: 1.45rem 1.2rem;
+}
+
+.benchmark-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.benchmark-header h1 {
+  font-family: var(--font-heading);
+  margin: 0.4rem 0 0;
+  text-wrap: balance;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+}
+
+.benchmark-header > p {
+  margin: 0.72rem 0 0;
+  max-width: 68ch;
+  color: var(--muted);
+}
+
+.benchmark-meta {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.benchmark-meta span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  padding: 0.36rem 0.7rem;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.benchmark-highlights h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+}
+
+.benchmark-highlight-grid {
+  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.benchmark-highlight-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.95rem;
+  background: var(--surface);
+}
+
+.benchmark-highlight-card h3 {
+  margin: 0;
+  font-size: 0.94rem;
+  font-family: var(--font-heading);
+}
+
+.benchmark-highlight-scenario {
+  margin: 0.48rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.benchmark-highlight-metric {
+  margin: 0.7rem 0 0;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.benchmark-highlight-metric strong {
+  font-size: 1.45rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.benchmark-highlight-metric span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.benchmark-sections {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.benchmark-section-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem;
+}
+
+.benchmark-section-head h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+}
+
+.benchmark-section-head p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.benchmark-table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.benchmark-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.benchmark-table th,
+.benchmark-table td {
+  padding: 0.6rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.benchmark-table thead th {
+  background: var(--surface-soft);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.benchmark-table tbody th {
+  font-weight: 600;
+}
+
+.benchmark-table tbody tr:hover {
+  background: var(--surface-soft);
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -469,7 +631,10 @@ button:focus-visible,
 .quick-link,
 .docs-index-card,
 .sidebar,
-.prose {
+.prose,
+.benchmark-header,
+.benchmark-highlight-card,
+.benchmark-section-card {
   animation: rise-in 420ms ease;
 }
 
@@ -517,7 +682,8 @@ button:focus-visible,
   .grid,
   .quick-links-grid,
   .docs-index-grid,
-  .docs-layout {
+  .docs-layout,
+  .benchmark-highlight-grid {
     grid-template-columns: 1fr;
   }
 

@@ -8,6 +8,18 @@ import framex as fx
 from framex.core.dataframe import DataFrame
 
 
+def _scale_partition_value(batch: pa.RecordBatch) -> pa.RecordBatch:
+    value_col = batch.column(batch.schema.get_field_index("value"))
+    scaled = pa.array([v.as_py() * 10 for v in value_col])
+    return pa.record_batch([scaled], names=["value"])
+
+
+def _shift_partition_value(batch: pa.RecordBatch) -> pa.RecordBatch:
+    value_col = batch.column(batch.schema.get_field_index("value"))
+    shifted = pa.array([v.as_py() + 1 for v in value_col])
+    return pa.record_batch([shifted], names=["value"])
+
+
 class TestConstruction:
     def test_from_dict(self):
         df = DataFrame({"a": [1, 2, 3], "b": [10, 20, 30]})
@@ -220,3 +232,24 @@ class TestLazy:
         df = DataFrame({"a": [3, 1, 2]})
         result = df.lazy().sort("a").collect()
         assert result["a"].to_pylist() == [1, 2, 3]
+
+    def test_lazy_map_partitions(self):
+        df = DataFrame({"value": [1, 2, 3, 4, 5, 6]})
+        result = (
+            df.lazy()
+            .map_partitions(_shift_partition_value, workers=2, backend="threads")
+            .collect()
+        )
+        assert result["value"].to_pylist() == [2, 3, 4, 5, 6, 7]
+
+
+class TestParallelPartitions:
+    def test_map_partitions_threads(self):
+        df = DataFrame({"value": list(range(1, 33))})
+        result = df.map_partitions(_scale_partition_value, workers=4, backend="threads")
+        assert result["value"].to_pylist() == [v * 10 for v in range(1, 33)]
+
+    def test_map_partitions_processes(self):
+        df = DataFrame({"value": list(range(1, 17))})
+        result = df.map_partitions(_scale_partition_value, workers=2, backend="processes")
+        assert result["value"].to_pylist() == [v * 10 for v in range(1, 17)]

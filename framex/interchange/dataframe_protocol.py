@@ -2,17 +2,45 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pandas as pd
-import pyarrow as pa
+
+
+def _sanitize_pandas_attrs(pdf: pd.DataFrame) -> pd.DataFrame:
+    """Return ``pdf`` with JSON-serializable ``attrs`` only.
+
+    Arrow conversion serializes ``DataFrame.attrs`` into schema metadata.
+    Non-serializable values (for example pandas internal buffers created by
+    interchange consumers) trigger warnings; we drop those keys.
+    """
+    attrs = getattr(pdf, "attrs", None)
+    if not attrs:
+        return pdf
+
+    filtered: dict[str, Any] = {}
+    changed = False
+    for key, value in attrs.items():
+        try:
+            json.dumps(value)
+            filtered[key] = value
+        except (TypeError, ValueError):
+            changed = True
+
+    if not changed and len(filtered) == len(attrs):
+        return pdf
+
+    sanitized = pdf.copy(deep=False)
+    sanitized.attrs = filtered
+    return sanitized
 
 
 def from_pandas(pdf: pd.DataFrame) -> Any:
     """Create a FrameX DataFrame from a Pandas DataFrame via Arrow."""
     from framex.core.dataframe import DataFrame
 
-    return DataFrame(pdf)
+    return DataFrame(_sanitize_pandas_attrs(pdf))
 
 
 def from_dataframe(df_protocol: Any, *, allow_copy: bool = True) -> Any:
@@ -25,7 +53,7 @@ def from_dataframe(df_protocol: Any, *, allow_copy: bool = True) -> Any:
     from framex.core.dataframe import DataFrame
 
     if isinstance(df_protocol, pd.DataFrame):
-        return DataFrame(df_protocol)
+        return DataFrame(_sanitize_pandas_attrs(df_protocol))
 
     # If the object has __dataframe__, use Pandas interchange to get a pd.DataFrame
     # then convert to FrameX.
@@ -33,7 +61,7 @@ def from_dataframe(df_protocol: Any, *, allow_copy: bool = True) -> Any:
         interchange_obj = df_protocol.__dataframe__(allow_copy=allow_copy)
         # Use pandas to consume the interchange protocol object.
         pdf = pd.api.interchange.from_dataframe(interchange_obj, allow_copy=allow_copy)
-        return DataFrame(pdf)
+        return DataFrame(_sanitize_pandas_attrs(pdf))
 
     raise TypeError(
         f"Cannot create DataFrame from {type(df_protocol)}.  "
