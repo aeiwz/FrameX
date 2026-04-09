@@ -43,15 +43,42 @@ Migrate incrementally:
 FrameX supports read/write for:
 
 - Parquet (`.parquet`)
+- ORC (`.orc`)
 - Arrow IPC (`.arrow`, `.ipc`)
-- CSV/TSV (`.csv`, `.tsv`)
+- CSV/TSV/Text (`.csv`, `.tsv`, `.tab`, `.txt`)
+- Fixed-width text (`.fwf`, `.fixed`, `.prn`)
 - JSON / NDJSON (`.json`, `.jsonl`, `.ndjson`)
 - Feather (`.feather`)
 - Pickle (`.pkl`, `.pickle`)
-- Excel (`.xlsx`, `.xls`) via pandas-compatible backend
+- Excel (`.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.ods`) via pandas-compatible backend
+- SQLite (`.sqlite`, `.sqlite3`, `.db`, `.db3`)
+- Export-only: HTML (`.html`, `.htm`), XML (`.xml`)
 
 `read_file(...)` and `write_file(...)` auto-detect by extension and support compressed wrappers:
 `.gz`, `.bz2`, `.xz`, `.zip`, plus `.zst`/`.zstd` when `zstandard` is installed.
+
+## How do I use SQLite with FrameX?
+
+Typical patterns:
+
+```python
+import framex as fx
+
+# write/replace a table
+fx.write_file(df, "warehouse.sqlite", table="events", if_exists="replace")
+
+# append incremental records
+fx.write_file(delta_df, "warehouse.sqlite", table="events", if_exists="append")
+
+# read a table
+events = fx.read_file("warehouse.sqlite", table="events")
+
+# read with query
+recent = fx.read_file(
+    "warehouse.sqlite",
+    query="SELECT * FROM events WHERE event_date >= '2026-01-01'",
+)
+```
 
 ## How do I tune execution?
 

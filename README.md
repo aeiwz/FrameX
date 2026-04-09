@@ -211,7 +211,7 @@ Benchmark outputs are written to `benchmarks/results`:
 
 ## Project Status
 
-FrameX is pre-1.0 (`0.1.1`) and in active development.
+FrameX is pre-1.0 (`0.1.2`) and in active development.
 
 - APIs are usable and documented
 - compatibility/performance behavior will continue to evolve

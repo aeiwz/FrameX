@@ -51,6 +51,14 @@ export default function Home() {
         </div>
 
         <div className="card">
+          <h3>Real-World File IO</h3>
+          <p>
+            Ship data across parquet, ORC, SQLite, JSON, CSV, fixed-width text,
+            and export-ready HTML/XML with one `read_file` / `write_file` surface.
+          </p>
+        </div>
+
+        <div className="card">
           <h3>Guides That Ship</h3>
           <p>
             Full docs now include onboarding, practical tutorials, use cases,
@@ -68,6 +76,7 @@ export default function Home() {
           <Link href="/docs/tutorial_numpy_array" className="quick-link">Tutorial: NumPy NDArray</Link>
           <Link href="/docs/use_cases" className="quick-link">Use Cases</Link>
           <Link href="/docs/configuration_guide" className="quick-link">Configuration Guide</Link>
+          <Link href="/docs/sqlite_guide" className="quick-link">SQLite Guide</Link>
           <Link href="/docs/performance_test" className="quick-link">Performance Test</Link>
           <Link href="/benchmarks" className="quick-link">Benchmark Report</Link>
           <Link href="/docs/architecture" className="quick-link">Architecture</Link>

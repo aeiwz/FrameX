@@ -7,11 +7,13 @@ import gzip
 import io
 import lzma
 import pickle
+import sqlite3
 import zipfile
 from pathlib import Path
 from typing import Any
 
 import pyarrow.feather as pfeather
+import pyarrow.orc as porc
 import pyarrow.parquet as pq
 import pyarrow as pa
 
@@ -37,22 +39,34 @@ def _normalize_format(path: Path, fmt: str | None) -> str:
     suffix = path.suffix.lower()
     if suffix in {".parquet"}:
         return "parquet"
+    if suffix in {".orc"}:
+        return "orc"
     if suffix in {".arrow", ".ipc"}:
         return "ipc"
     if suffix in {".csv"}:
         return "csv"
-    if suffix in {".tsv"}:
+    if suffix in {".tsv", ".tab"}:
         return "tsv"
+    if suffix in {".txt"}:
+        return "txt"
+    if suffix in {".fwf", ".fixed", ".prn"}:
+        return "fixed"
     if suffix in {".jsonl", ".ndjson"}:
         return "ndjson"
     if suffix in {".json"}:
         return "json"
-    if suffix in {".feather"}:
+    if suffix in {".feather", ".ftr"}:
         return "feather"
+    if suffix in {".html", ".htm"}:
+        return "html"
+    if suffix in {".xml"}:
+        return "xml"
     if suffix in {".pkl", ".pickle"}:
         return "pickle"
-    if suffix in {".xlsx", ".xls"}:
+    if suffix in {".xlsx", ".xls", ".xlsm", ".xlsb", ".ods"}:
         return "excel"
+    if suffix in {".sqlite", ".sqlite3", ".db", ".db3"}:
+        return "sqlite"
     raise ValueError(f"Could not infer file format from extension: {path}")
 
 
@@ -136,8 +150,8 @@ def read_file(
     """Read a file into a FrameX DataFrame with format inference.
 
     Supported formats:
-    ``parquet``, ``ipc``, ``csv``, ``tsv``, ``json``, ``ndjson``,
-    ``feather``, ``pickle``, ``excel``.
+    ``parquet``, ``orc``, ``ipc``, ``csv``, ``tsv``, ``txt``, ``fixed``, ``json``,
+    ``ndjson``, ``feather``, ``pickle``, ``excel``, ``sqlite``.
     """
     from framex.core.dataframe import DataFrame
     from framex.pandas_engine import get_pandas_module
@@ -157,12 +171,22 @@ def read_file(
 
             parse_options = kwargs.pop("parse_options", pcsv.ParseOptions(delimiter="\t"))
             return read_csv_bytes(payload, parse_options=parse_options, **kwargs)
+        if fmt == "txt":
+            import pyarrow.csv as pcsv
+
+            parse_options = kwargs.pop("parse_options", pcsv.ParseOptions(delimiter=","))
+            return read_csv_bytes(payload, parse_options=parse_options, **kwargs)
+        if fmt == "fixed":
+            pd = get_pandas_module()
+            return DataFrame(pd.read_fwf(io.StringIO(payload.decode("utf-8")), **kwargs))
         if fmt == "json":
             return read_json_bytes(payload, lines=False, **kwargs)
         if fmt == "ndjson":
             return read_json_bytes(payload, lines=True, **kwargs)
         if fmt == "parquet":
             return DataFrame(pq.read_table(pa.BufferReader(payload), **kwargs))
+        if fmt == "orc":
+            return DataFrame(porc.read_table(pa.BufferReader(payload), **kwargs))
         if fmt == "ipc":
             reader = pa.ipc.open_stream(pa.BufferReader(payload))
             return DataFrame(reader.read_all())
@@ -176,10 +200,14 @@ def read_file(
         if fmt == "excel":
             pd = get_pandas_module()
             return DataFrame(pd.read_excel(io.BytesIO(payload), **kwargs))
+        if fmt == "sqlite":
+            raise ValueError("Compressed SQLite input is not supported")
         raise ValueError(f"Unsupported format for compressed input: {fmt!r}")
 
     if fmt == "parquet":
         return read_parquet(file_path, **kwargs)
+    if fmt == "orc":
+        return DataFrame(porc.read_table(file_path, **kwargs))
     if fmt == "ipc":
         return read_ipc(file_path)
     if fmt == "csv":
@@ -189,6 +217,14 @@ def read_file(
 
         parse_options = kwargs.pop("parse_options", pcsv.ParseOptions(delimiter="\t"))
         return read_csv(file_path, parse_options=parse_options, **kwargs)
+    if fmt == "txt":
+        import pyarrow.csv as pcsv
+
+        parse_options = kwargs.pop("parse_options", pcsv.ParseOptions(delimiter=","))
+        return read_csv(file_path, parse_options=parse_options, **kwargs)
+    if fmt == "fixed":
+        pd = get_pandas_module()
+        return DataFrame(pd.read_fwf(file_path, **kwargs))
     if fmt == "json":
         return read_json(file_path, lines=False, **kwargs)
     if fmt == "ndjson":
@@ -201,9 +237,29 @@ def read_file(
     if fmt == "excel":
         pd = get_pandas_module()
         return DataFrame(pd.read_excel(file_path, **kwargs))
+    if fmt == "sqlite":
+        query = kwargs.pop("query", None)
+        table = kwargs.pop("table", None)
+        if query is not None and table is not None:
+            raise ValueError("Pass either 'query' or 'table' for SQLite input, not both")
+
+        with sqlite3.connect(file_path) as conn:
+            if query is None:
+                if table is None:
+                    row = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+                        "ORDER BY name LIMIT 1"
+                    ).fetchone()
+                    if row is None:
+                        raise ValueError("SQLite file has no user tables")
+                    table = str(row[0])
+                query = f'SELECT * FROM "{table}"'
+            pd = get_pandas_module()
+            return DataFrame(pd.read_sql_query(query, conn, **kwargs))
 
     raise ValueError(
-        "Unsupported format. Expected one of: parquet, ipc, csv, tsv, json, ndjson, feather, pickle, excel; "
+        "Unsupported format. Expected one of: parquet, orc, ipc, csv, tsv, txt, fixed, json, ndjson, "
+        "feather, pickle, excel, sqlite; "
         f"got {fmt!r}"
     )
 
@@ -219,11 +275,12 @@ def write_file(
     """Write a FrameX DataFrame with format inference.
 
     Supported formats:
-    ``parquet``, ``ipc``, ``csv``, ``tsv``, ``json``, ``ndjson``,
-    ``feather``, ``pickle``, ``excel``.
+    ``parquet``, ``orc``, ``ipc``, ``csv``, ``tsv``, ``txt``, ``fixed``, ``json``, ``ndjson``,
+    ``feather``, ``pickle``, ``excel``, ``html``, ``xml``, ``sqlite``.
     """
     from framex.pandas_engine import get_pandas_module
 
+    df = _ensure_framex_dataframe(df)
     file_path = Path(path)
     inferred_compression = _infer_compression(file_path)
     resolved_compression = compression or inferred_compression
@@ -246,6 +303,10 @@ def write_file(
             sink = pa.BufferOutputStream()
             pq.write_table(df.to_arrow(), sink, **kwargs)
             payload = sink.getvalue().to_pybytes()
+        elif fmt == "orc":
+            sink = pa.BufferOutputStream()
+            porc.write_table(df.to_arrow(), sink, **kwargs)
+            payload = sink.getvalue().to_pybytes()
         elif fmt == "ipc":
             sink = pa.BufferOutputStream()
             table = df.to_arrow()
@@ -257,6 +318,16 @@ def write_file(
             sink = pa.BufferOutputStream()
             pfeather.write_feather(df.to_arrow(), sink, **kwargs)
             payload = sink.getvalue().to_pybytes()
+        elif fmt == "txt":
+            import pyarrow.csv as pcsv
+
+            write_options = kwargs.pop("write_options", pcsv.WriteOptions(delimiter=","))
+            payload = write_csv_bytes(df, write_options=write_options, **kwargs)
+        elif fmt == "fixed":
+            pd = get_pandas_module()
+            index = kwargs.pop("index", False)
+            text = pd.DataFrame(df.to_pydict()).to_string(index=index, **kwargs)
+            payload = (text + ("\n" if not text.endswith("\n") else "")).encode("utf-8")
         elif fmt == "pickle":
             payload = pickle.dumps(df.to_pandas(), protocol=pickle.HIGHEST_PROTOCOL)
         elif fmt == "excel":
@@ -264,6 +335,17 @@ def write_file(
             buf = io.BytesIO()
             pd.DataFrame(df.to_pydict()).to_excel(buf, index=False, **kwargs)
             payload = buf.getvalue()
+        elif fmt == "html":
+            pd = get_pandas_module()
+            html = pd.DataFrame(df.to_pydict()).to_html(index=False, **kwargs)
+            payload = html.encode("utf-8")
+        elif fmt == "xml":
+            pd = get_pandas_module()
+            xml_kwargs = {"index": False, "parser": "etree", **kwargs}
+            xml = pd.DataFrame(df.to_pydict()).to_xml(**xml_kwargs)
+            payload = xml.encode("utf-8")
+        elif fmt == "sqlite":
+            raise ValueError("Compressed SQLite output is not supported")
         else:
             raise ValueError(f"Unsupported format for compressed output: {fmt!r}")
 
@@ -272,6 +354,9 @@ def write_file(
 
     if fmt == "parquet":
         write_parquet(df, file_path, **kwargs)
+        return
+    if fmt == "orc":
+        porc.write_table(df.to_arrow(), file_path, **kwargs)
         return
     if fmt == "ipc":
         write_ipc(df, file_path)
@@ -284,6 +369,18 @@ def write_file(
 
         write_options = kwargs.pop("write_options", pcsv.WriteOptions(delimiter="\t"))
         write_csv(df, file_path, write_options=write_options, **kwargs)
+        return
+    if fmt == "txt":
+        import pyarrow.csv as pcsv
+
+        write_options = kwargs.pop("write_options", pcsv.WriteOptions(delimiter=","))
+        write_csv(df, file_path, write_options=write_options, **kwargs)
+        return
+    if fmt == "fixed":
+        pd = get_pandas_module()
+        index = kwargs.pop("index", False)
+        text = pd.DataFrame(df.to_pydict()).to_string(index=index, **kwargs)
+        file_path.write_text(text + ("\n" if not text.endswith("\n") else ""), encoding="utf-8")
         return
     if fmt == "json":
         write_json(df, file_path, lines=False, **kwargs)
@@ -302,9 +399,33 @@ def write_file(
         pd = get_pandas_module()
         pd.DataFrame(df.to_pydict()).to_excel(file_path, index=False, **kwargs)
         return
+    if fmt == "html":
+        pd = get_pandas_module()
+        pd.DataFrame(df.to_pydict()).to_html(file_path, index=False, **kwargs)
+        return
+    if fmt == "xml":
+        pd = get_pandas_module()
+        xml_kwargs = {"index": False, "parser": "etree", **kwargs}
+        pd.DataFrame(df.to_pydict()).to_xml(file_path, **xml_kwargs)
+        return
+    if fmt == "sqlite":
+        table = kwargs.pop("table", "framex")
+        if_exists = kwargs.pop("if_exists", "replace")
+        index = kwargs.pop("index", False)
+        pd = get_pandas_module()
+        with sqlite3.connect(file_path) as conn:
+            pd.DataFrame(df.to_pydict()).to_sql(
+                table,
+                conn,
+                if_exists=if_exists,
+                index=index,
+                **kwargs,
+            )
+        return
 
     raise ValueError(
-        "Unsupported format. Expected one of: parquet, ipc, csv, tsv, json, ndjson, feather, pickle, excel; "
+        "Unsupported format. Expected one of: parquet, orc, ipc, csv, tsv, txt, fixed, json, ndjson, feather, "
+        "pickle, excel, html, xml, sqlite; "
         f"got {fmt!r}"
     )
 
@@ -313,4 +434,23 @@ def _looks_like_pandas_dataframe(value: Any) -> bool:
     cls = value.__class__
     return cls.__name__ == "DataFrame" and cls.__module__.startswith(
         ("pandas.", "modin.pandas", "fireducks.pandas")
+    )
+
+
+def _ensure_framex_dataframe(value: Any) -> Any:
+    from framex.core.dataframe import DataFrame
+
+    if isinstance(value, DataFrame):
+        return value
+    if isinstance(value, pa.Table):
+        return DataFrame(value)
+    if _looks_like_pandas_dataframe(value):
+        return DataFrame(value)
+    if isinstance(value, dict):
+        return DataFrame(value)
+    if isinstance(value, list) and all(isinstance(item, dict) for item in value):
+        return DataFrame(pa.Table.from_pylist(value))
+    raise TypeError(
+        "write_file expects a FrameX DataFrame or dataframe-like input (pandas.DataFrame, pyarrow.Table, "
+        "dict of columns, or list of row dicts)."
     )

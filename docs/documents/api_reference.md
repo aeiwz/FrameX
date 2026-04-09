@@ -168,9 +168,42 @@ NumPy protocol support:
 - `fx.read_file(path, format=None, **kwargs)` (auto detect by extension)
 - `fx.write_file(df, path, format=None, **kwargs)` (auto detect by extension)
 
+`read_file` formats:
+- `parquet`, `orc`, `ipc`, `csv`, `tsv`, `txt`, `fixed`, `json`, `ndjson`, `feather`, `pickle`, `excel`, `sqlite`
+
+`write_file` formats:
+- `parquet`, `orc`, `ipc`, `csv`, `tsv`, `txt`, `fixed`, `json`, `ndjson`, `feather`, `pickle`, `excel`, `html`, `xml`, `sqlite`
+
 Compression wrappers for `read_file` / `write_file`:
 - `.gz`, `.bz2`, `.xz`, `.zip`
 - `.zst` / `.zstd` when the optional `zstandard` package is available
+
+SQLite examples:
+
+```python
+import framex as fx
+
+# Write to SQLite table (replace if exists by default)
+fx.write_file(df, "analytics.sqlite", table="sales")
+
+# Append rows to existing table
+fx.write_file(df_new, "analytics.sqlite", table="sales", if_exists="append")
+
+# Read full table
+sales_df = fx.read_file("analytics.sqlite", table="sales")
+
+# Read with SQL query
+top_df = fx.read_file(
+    "analytics.sqlite",
+    query="SELECT region, SUM(amount) AS total FROM sales GROUP BY region ORDER BY total DESC",
+)
+```
+
+SQLite parameter notes:
+- `write_file(..., table="name", if_exists="replace|append|fail", index=False)`
+- `read_file(..., table="name")` reads one table
+- `read_file(..., query="SELECT ...")` runs custom SQL
+- if both `table` and `query` are omitted on read, FrameX loads the first user table
 
 ## Interchange
 
