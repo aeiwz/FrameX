@@ -25,7 +25,7 @@ Typical fit:
 From PyPI:
 
 ```bash
-pip install framex
+pip install pyframe-xpy
 ```
 
 From source:
@@ -40,7 +40,7 @@ Requirements:
 
 - Python `>=3.10`
 - Core dependencies: `pyarrow`, `numpy`
-- Optional compatibility: `pandas` (`pip install framex[pandas_compat]`)
+- Optional compatibility: `pandas` (`pip install pyframe-xpy[pandas_compat]`)
 
 ## Quick Start
 
@@ -94,10 +94,10 @@ Compression:
 Acceleration extras:
 
 ```bash
-pip install framex[accel]      # numexpr + numba
-pip install framex[gpu]        # cupy (CUDA)
-pip install framex[ml_accel]   # jax + pytorch
-pip install framex[pandas_fast]  # modin backend
+pip install pyframe-xpy[accel]      # numexpr + numba
+pip install pyframe-xpy[gpu]        # cupy (CUDA)
+pip install pyframe-xpy[ml_accel]   # jax + pytorch
+pip install pyframe-xpy[pandas_fast]  # modin backend
 pip install dask[distributed] ray[data]  # distributed/HPC backends
 pip install zstandard  # .zst/.zstd file compression
 ```
