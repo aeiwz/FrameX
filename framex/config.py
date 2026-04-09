@@ -6,6 +6,7 @@ import importlib.util
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from pprint import pformat
 from typing import Iterator, Literal
 
 
@@ -156,6 +157,20 @@ def auto_configure_hardware(*, apply: bool = True) -> Config:
 def get_config() -> Config:
     """Return the current global configuration."""
     return _current
+
+
+def print_config() -> None:
+    """Print the current global configuration to the console."""
+    config_dict = {
+        "backend": _current.backend,
+        "workers": _current.workers,
+        "serializer": _current.serializer,
+        "partition_size_rows": _current.partition_size_rows,
+        "kernel_backend": _current.kernel_backend,
+        "array_backend": _current.array_backend,
+    }
+    print("FrameX configuration:")
+    print(pformat(config_dict, sort_dicts=False))
 
 
 def set_backend(backend: BackendType) -> None:

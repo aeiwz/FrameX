@@ -18,7 +18,7 @@ Key exports:
 - `DataFrame`, `Series`, `Index`, `LazyFrame`, `NDArray`
 - IO: `read_parquet`, `write_parquet`, `read_ipc`, `write_ipc`, `read_csv`
 - Interchange: `from_pandas`, `from_dask`, `from_ray`, `from_dataframe`
-- Config: `get_config`, `set_backend`, `set_workers`, `set_serializer`, `set_kernel_backend`, `set_array_backend`
+- Config: `get_config`, `print_config`, `set_backend`, `set_workers`, `set_serializer`, `set_kernel_backend`, `set_array_backend`
 - Array constructor: `array(...)`
 - Streaming: `StreamProcessor`, `StreamStats`
 
@@ -182,6 +182,7 @@ Compression wrappers for `read_file` / `write_file`:
 ## Config
 
 - `fx.get_config()`
+- `fx.print_config()`
 - `fx.recommend_best_performance_config()`
 - `fx.auto_configure_hardware(apply=True)`
 - `fx.set_backend("threads"|"processes"|"ray"|"dask"|"hpc")`
