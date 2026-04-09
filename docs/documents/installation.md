@@ -9,7 +9,7 @@ section: Introduction
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.10+
 - macOS, Linux, or Windows
 
 ## Install from PyPI
@@ -45,7 +45,7 @@ pip install pyframe-xpy[accel]      # numexpr + numba
 pip install pyframe-xpy[gpu]        # cupy (CUDA)
 pip install pyframe-xpy[ml_accel]   # jax + pytorch
 pip install pyframe-xpy[pandas_fast]  # modin backend
-pip install "dask[distributed]" "ray[data]"  # cluster/HPC backends
+pip install pyframe-xpy[distributed]  # Dask + Ray distributed backends
 pip install zstandard  # .zst/.zstd compression
 ```
 
@@ -60,7 +60,7 @@ Common optional dependencies:
 Install them to reduce skips:
 
 ```bash
-pip install "dask[distributed]" "ray[data]"
+pip install pyframe-xpy[distributed]
 pytest -q
 ```
 

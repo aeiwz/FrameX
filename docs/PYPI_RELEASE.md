@@ -61,7 +61,10 @@ Pipeline stages:
 2. Run test matrix on Python 3.10/3.11/3.12
 3. Build `sdist` + `wheel`
 4. Run `twine check`
-5. Upload `dist/` artifact
+5. Smoke test wheel install/import:
+   - install the built wheel in a fresh virtual environment
+   - verify `import framex as fx` succeeds
+6. Upload `dist/` artifact
 
 ## 5) Version bump checklist
 
@@ -81,3 +84,6 @@ python3 -m twine check dist/*
 
 - `MANIFEST.in` excludes machine-specific binaries (`*.so`, `*.dylib`, `*.pyd`) from source distributions.
 - `framex/backends/c_backend.py` compiles native kernels at runtime when available.
+- Package name vs import name:
+  - Install: `pip install pyframe-xpy`
+  - Use: `import framex as fx`

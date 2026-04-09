@@ -15,6 +15,13 @@ This guide takes you from install to a complete mini pipeline: load data, transf
 pip install pyframe-xpy
 ```
 
+Optional extras:
+
+```bash
+pip install pyframe-xpy[distributed]  # Dask + Ray runtime integrations
+pip install pyframe-xpy[accel]        # numexpr + numba
+```
+
 ## 2. Import and Create a DataFrame
 
 ```python

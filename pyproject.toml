@@ -29,13 +29,15 @@ classifiers = [
 dependencies = [
   "pyarrow>=14.0",
   "numpy>=1.24",
-  "dask[dataframe]>=2024.1.0",
-  "ray[data]>=2.9.0",
 ]
 
 [project.optional-dependencies]
 pandas_compat = [
   "pandas>=2.0",
+]
+distributed = [
+  "dask[dataframe,distributed]>=2024.1.0",
+  "ray[data]>=2.9.0",
 ]
 accel = [
   "numexpr>=2.9",
@@ -71,6 +73,9 @@ Repository = "https://github.com/aeiwz/FrameX"
 Issues = "https://github.com/aeiwz/FrameX/issues"
 Documentation = "https://github.com/aeiwz/FrameX/tree/main/docs"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 include = ["framex", "framex.*"]
 exclude = ["tests", "tests.*", "benchmarks", "benchmarks.*"]
@@ -79,6 +84,9 @@ exclude = ["tests", "tests.*", "benchmarks", "benchmarks.*"]
 framex = [
   "backends/c_kernels.c",
 ]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.so", "*.dylib", "*.pyd", "*.pyc", "__pycache__/*"]
 
 
 [tool.pytest.ini_options]

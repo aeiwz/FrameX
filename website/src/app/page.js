@@ -19,6 +19,10 @@ export default function Home() {
           <li><strong>Eager + Lazy</strong><span>Choose execution style</span></li>
           <li><strong>NDArray Interop</strong><span>NumPy protocol support</span></li>
         </ul>
+        <div className="hero-install" aria-label="Install and import">
+          <pre><code>pip install pyframe-xpy</code></pre>
+          <pre><code>import framex as fx</code></pre>
+        </div>
       </section>
 
       <section className="grid" aria-label="Platform capabilities">

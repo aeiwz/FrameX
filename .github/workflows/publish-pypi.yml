@@ -108,9 +108,35 @@ jobs:
           name: python-dist-${{ needs.validate-version.outputs.version }}
           path: dist/
 
+  install-smoke-test:
+    needs: [validate-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist-${{ needs.validate-version.outputs.version }}
+          path: dist/
+
+      - name: Install wheel and import framex
+        shell: bash
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python - <<'PY'
+          import framex as fx
+          print(f"Imported framex successfully, version={fx.__version__}")
+          PY
+
   publish-testpypi:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.repository == 'testpypi'
-    needs: [validate-version, build]
+    needs: [validate-version, build, install-smoke-test]
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -131,7 +157,7 @@ jobs:
 
   publish-pypi:
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.repository == 'pypi')
-    needs: [validate-version, build]
+    needs: [validate-version, build, install-smoke-test]
     runs-on: ubuntu-latest
     environment:
       name: pypi

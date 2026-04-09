@@ -74,6 +74,6 @@ They are skipped (not failed) when optional runtimes are missing, especially:
 Install optional deps to run those suites:
 
 ```bash
-pip install "dask[distributed]" "ray[data]"
+pip install pyframe-xpy[distributed]
 pytest -q
 ```

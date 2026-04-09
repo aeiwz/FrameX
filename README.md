@@ -98,7 +98,7 @@ pip install pyframe-xpy[accel]      # numexpr + numba
 pip install pyframe-xpy[gpu]        # cupy (CUDA)
 pip install pyframe-xpy[ml_accel]   # jax + pytorch
 pip install pyframe-xpy[pandas_fast]  # modin backend
-pip install dask[distributed] ray[data]  # distributed/HPC backends
+pip install pyframe-xpy[distributed]  # Dask + Ray distributed/HPC backends
 pip install zstandard  # .zst/.zstd file compression
 ```
 
@@ -119,7 +119,7 @@ Test support notes:
 - Run full optional matrix locally:
 
 ```bash
-pip install "dask[distributed]" "ray[data]"
+pip install pyframe-xpy[distributed]
 pytest -q
 ```
 

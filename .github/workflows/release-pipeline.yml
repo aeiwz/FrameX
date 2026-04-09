@@ -123,3 +123,29 @@ jobs:
         with:
           name: framex-dist-${{ needs.validate-version.outputs.version }}
           path: dist/
+
+  install-smoke-test:
+    needs: [validate-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: framex-dist-${{ needs.validate-version.outputs.version }}
+          path: dist/
+
+      - name: Install wheel and import framex
+        shell: bash
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python - <<'PY'
+          import framex as fx
+          print(f"Imported framex successfully, version={fx.__version__}")
+          PY

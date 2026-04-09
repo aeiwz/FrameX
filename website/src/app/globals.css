@@ -216,6 +216,28 @@ button:focus-visible,
   font-size: 0.86rem;
 }
 
+.hero-install {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.hero-install pre {
+  margin: 0;
+  background: #f8fafc;
+  color: #111827;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.68rem 0.72rem;
+  overflow-x: auto;
+}
+
+.hero-install code {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
 .grid {
   margin-top: 1.55rem;
   display: grid;
@@ -862,6 +884,7 @@ button:focus-visible,
   }
 
   .hero-metrics,
+  .hero-install,
   .grid,
   .quick-links-grid,
   .learning-path-grid,
