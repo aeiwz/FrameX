@@ -128,11 +128,14 @@ pytest -q
 Canonical docs are in [`docs/documents`](docs/documents):
 
 - [Overview](docs/documents/overview.md)
+- [Features](docs/documents/features.md)
 - [Getting Started](docs/documents/getting_started.md)
 - [Installation](docs/documents/installation.md)
 - [Tutorial: ETL Pipeline](docs/documents/tutorial_etl_pipeline.md)
 - [Tutorial: NumPy NDArray Interop](docs/documents/tutorial_numpy_array.md)
 - [Use Cases](docs/documents/use_cases.md)
+- [Configuration Guide](docs/documents/configuration_guide.md)
+- [Performance Test](docs/documents/performance_test.md)
 - [Architecture](docs/documents/architecture.md)
 - [API Reference](docs/documents/api_reference.md)
 - [Roadmap](docs/documents/roadmap.md)
@@ -141,6 +144,14 @@ Canonical docs are in [`docs/documents`](docs/documents):
 ## Website (Docs UI)
 
 The docs website lives in [`website`](website) (Next.js App Router).
+
+Main docs routes:
+
+- `http://localhost:3000/docs/features`
+- `http://localhost:3000/docs/tutorial_etl_pipeline`
+- `http://localhost:3000/docs/use_cases`
+- `http://localhost:3000/docs/configuration_guide`
+- `http://localhost:3000/docs/performance_test`
 
 Run locally:
 
@@ -174,6 +185,29 @@ pytest
 ## Benchmarks
 
 Benchmark code and generated reports are in [`benchmarks`](benchmarks).
+
+Run the full benchmark suite (includes in-terminal progress bar and report generation):
+
+```bash
+python3 -m benchmarks.benchmark_suite
+```
+
+Run workload capability matrix checks:
+
+```bash
+python3 -m benchmarks.check_framex_workloads
+```
+
+Benchmark outputs are written to `benchmarks/results`:
+
+- `benchmark_results.json`
+- `benchmark_results.csv`
+- `benchmark_report.md`
+- `framex_workload_check.json`
+- `performance_speedup.png`
+- `parallel_processing_scaling.png`
+- `multiprocessing_scaling.png`
+- `memory_peak_rss.png`
 
 ## Project Status
 

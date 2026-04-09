@@ -88,10 +88,15 @@ export default function BenchmarksPage() {
           Snapshot from the local benchmark suite. Use this report to track wins, regressions,
           and where optimization work should focus next.
         </p>
+        <div className="benchmark-run-block">
+          <p><strong>Run Performance Test</strong></p>
+          <pre><code>python3 -m benchmarks.benchmark_suite</code></pre>
+        </div>
         <div className="benchmark-meta">
           <span><strong>Rows Captured:</strong> {data.rowCount}</span>
           <span><strong>Generated:</strong> {data.generatedAt || 'Unknown'}</span>
           <Link href="/docs/benchmark-results" className="button-outline">Read Full Narrative</Link>
+          <Link href="/docs/performance_test" className="button-outline">Performance Test Guide</Link>
         </div>
       </header>
 
