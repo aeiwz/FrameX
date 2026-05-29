@@ -1,27 +1,5 @@
 import './globals.css'
 import Link from 'next/link'
-import { Roboto, IBM_Plex_Mono } from 'next/font/google'
-
-const headingFont = Roboto({
-  subsets: ['latin'],
-  variable: '--font-heading',
-  display: 'swap',
-  weight: ['400', '500', '700'],
-})
-
-const bodyFont = Roboto({
-  subsets: ['latin'],
-  variable: '--font-body',
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-})
-
-const monoFont = IBM_Plex_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  weight: ['400', '500'],
-  display: 'swap',
-})
 
 export const metadata = {
   title: 'FrameX',
@@ -30,7 +8,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${headingFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+    <html lang="en">
       <body>
         <a href="#main-content" className="skip-link">Skip to content</a>
         <div className="container">
